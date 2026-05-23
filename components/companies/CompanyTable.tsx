@@ -18,6 +18,8 @@ export function CompanyTable({ companies }: { companies: CompanyMetrics[] }) {
           <TableHead className="py-3 text-right font-semibold text-foreground">Volumen 60d</TableHead>
           <TableHead className="py-3 text-right font-semibold text-foreground">Última op.</TableHead>
           <TableHead className="py-3 font-semibold text-foreground">Share of Wallet</TableHead>
+          <TableHead className="py-3 text-right font-semibold text-foreground">DICOM / Buró</TableHead>
+          <TableHead className="py-3 text-right font-semibold text-foreground">Health</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
