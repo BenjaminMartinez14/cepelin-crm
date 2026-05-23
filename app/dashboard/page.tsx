@@ -28,20 +28,28 @@ export default function DashboardPage() {
   }, [fetchCompanies]);
 
   async function handleRefreshScores() {
+    if (!companies) return;
     setRefreshing(true);
+    let processed = 0;
+    let errors = 0;
     try {
-      const result = await apiPost<{ processed: number; errors: number }>(
-        "/api/health-scores/generate",
-        {},
-      );
+      for (const company of companies) {
+        try {
+          await apiPost<{ processed: number; errors: number }>(
+            "/api/health-scores/generate",
+            { companyId: company.id },
+          );
+          processed++;
+        } catch {
+          errors++;
+        }
+      }
       toast.success(
-        `${result.processed} empresa${result.processed !== 1 ? "s" : ""} analizada${result.processed !== 1 ? "s" : ""}${result.errors > 0 ? ` · ${result.errors} error${result.errors !== 1 ? "es" : ""}` : ""}`,
+        `${processed} empresa${processed !== 1 ? "s" : ""} analizada${processed !== 1 ? "s" : ""}${errors > 0 ? ` · ${errors} error${errors !== 1 ? "es" : ""}` : ""}`,
       );
-      fetchCompanies();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al actualizar scores");
     } finally {
       setRefreshing(false);
+      fetchCompanies();
     }
   }
 
