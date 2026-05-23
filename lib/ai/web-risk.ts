@@ -29,23 +29,22 @@ Si no encuentras información relevante en alguna sección, indícalo explícita
 export async function streamWebRiskAnalysis(
   opts: WebRiskStreamOptions,
 ): Promise<string> {
-  const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey) throw new Error("XAI_API_KEY not configured");
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY not configured");
 
   const { company, onChunk, signal } = opts;
   const prompt = buildPrompt(company.name, company.tax_id, company.country);
 
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "grok-3-mini",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       stream: true,
-      search_parameters: { mode: "auto" },
     }),
     signal,
   });
