@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyHeader } from "@/components/detail/CompanyHeader";
 import { MetricsRow } from "@/components/detail/MetricsRow";
+import { AiAnalysis } from "@/components/detail/AiAnalysis";
 import { VolumeChart } from "@/components/detail/VolumeChart";
 import { InvoiceTable } from "@/components/detail/InvoiceTable";
 import { TopDebtors } from "@/components/detail/TopDebtors";
@@ -41,6 +42,7 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
               <Skeleton key={i} className="h-28 w-full" />
             ))}
           </div>
+          <Skeleton className="h-36 w-full" />
           <Skeleton className="h-72 w-full" />
         </div>
       )}
@@ -49,6 +51,7 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
         <>
           <CompanyHeader company={detail.company} contacts={detail.contacts} />
           <MetricsRow company={detail.company} />
+          <AiAnalysis company={detail.company} />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <VolumeChart

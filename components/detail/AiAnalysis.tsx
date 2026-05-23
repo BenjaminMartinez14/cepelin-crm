@@ -85,7 +85,7 @@ export function AiAnalysis({ company: initialCompany }: AiAnalysisProps) {
 
       {!hasAnalysis ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          Sin análisis · Haz clic en "Generar" para obtener el health score con IA.
+          Sin análisis · Haz clic en &quot;Generar&quot; para obtener el health score con IA.
         </p>
       ) : (
         <div className="mt-4 space-y-4">
@@ -113,7 +113,7 @@ export function AiAnalysis({ company: initialCompany }: AiAnalysisProps) {
           {/* Summary */}
           {company.ai_summary && (
             <p className="text-sm leading-relaxed text-muted-foreground">
-              "{company.ai_summary}"
+              &quot;{company.ai_summary}&quot;
             </p>
           )}
 
