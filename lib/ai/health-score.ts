@@ -53,6 +53,14 @@ Company data:
 ${JSON.stringify(payload)}`;
 }
 
+function tryParse(raw: string) {
+  try {
+    return resultSchema.safeParse(JSON.parse(raw));
+  } catch {
+    return { success: false as const, error: new Error("JSON.parse failed") };
+  }
+}
+
 async function callWithTimeout(
   client: Anthropic,
   prompt: string,
@@ -72,8 +80,14 @@ async function callWithTimeout(
       { signal: controller.signal as AbortSignal },
     );
 
+    if (!msg.content.length) {
+      throw new Error("Empty response from LLM");
+    }
     const block = msg.content[0];
-    return block.type === "text" ? block.text : "";
+    if (block.type !== "text") {
+      throw new Error(`Unexpected content block type: ${block.type}`);
+    }
+    return block.text;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -83,21 +97,23 @@ export async function generateHealthScore(
   company: CompanyMetrics,
   topDebtors: TopDebtor[],
 ): Promise<HealthScoreResult> {
-  const apiKey = process.env.ANTHROPIC_AI_API_KEY ?? process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
   const client = new Anthropic({ apiKey });
   const prompt = buildUserPrompt(company, topDebtors);
 
   let raw = await callWithTimeout(client, prompt);
-  let parsed = resultSchema.safeParse(JSON.parse(raw));
+  let parsed = tryParse(raw);
 
   if (!parsed.success) {
     // One retry on bad JSON/schema
     raw = await callWithTimeout(client, prompt);
-    parsed = resultSchema.safeParse(JSON.parse(raw));
+    parsed = tryParse(raw);
     if (!parsed.success) {
-      throw new Error(`Invalid LLM response: ${parsed.error.message}`);
+      const err = parsed.error;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Invalid LLM response: ${errMsg}`);
     }
   }
 
