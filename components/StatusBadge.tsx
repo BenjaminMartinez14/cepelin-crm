@@ -3,17 +3,17 @@ import { statusLabel } from "@/lib/format";
 import type { CompanyStatus, InvoiceStatus } from "@/types";
 
 const COMPANY_VARIANTS: Record<CompanyStatus, string> = {
-  enrolled: "bg-slate-100 text-slate-600 border border-slate-200",
-  active: "bg-blue-50 text-blue-700 border border-blue-200",
-  recurring: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  enrolled:  "bg-slate-700/40 text-slate-300 border border-slate-600",
+  active:    "bg-blue-900/40 text-blue-300 border border-blue-700",
+  recurring: "bg-emerald-900/40 text-emerald-300 border border-emerald-700",
 };
 
 const INVOICE_VARIANTS: Record<InvoiceStatus, string> = {
-  issued: "bg-slate-100 text-slate-700",
-  assigned_cepelin: "bg-green-100 text-green-700",
-  assigned_competitor: "bg-red-100 text-red-700",
-  in_collection: "bg-amber-100 text-amber-700",
-  collected: "bg-emerald-100 text-emerald-700",
+  issued:              "bg-slate-700/40 text-slate-300",
+  assigned_cepelin:    "bg-emerald-900/40 text-emerald-300",
+  assigned_competitor: "bg-red-900/40 text-red-300",
+  in_collection:       "bg-amber-900/40 text-amber-300",
+  collected:           "bg-teal-900/40 text-teal-300",
 };
 
 export function CompanyStatusBadge({ status }: { status: CompanyStatus }) {

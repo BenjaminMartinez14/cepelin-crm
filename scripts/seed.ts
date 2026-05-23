@@ -43,6 +43,13 @@ function makeTaxId(country: Country): string {
 // --- cohorts --------------------------------------------------------------
 type Cohort = "churn_risk" | "low_sow" | "healthy" | "never_activated";
 
+const CREDIT_RISK: Record<Cohort, [number, number]> = {
+  healthy:          [5,  25],
+  low_sow:          [25, 50],
+  churn_risk:       [55, 85],
+  never_activated:  [35, 65],
+};
+
 interface CompanySpec {
   name: string;
   country: Country;
@@ -116,7 +123,9 @@ function buildInvoices(cohort: Cohort): Array<{
     }
     case "low_sow": {
       // Real volume exists but mostly goes to the competitor.
-      for (let i = 0; i < rint(5, 8); i++) {
+      // Guarantee ≥1 recent Cepelin invoice so volume_60d > 0.
+      out.push({ amount: amt(), issued_at: daysAgo(rint(2, 45)), status: "assigned_cepelin" });
+      for (let i = 0; i < rint(4, 7); i++) {
         out.push({
           amount: amt(),
           issued_at: daysAgo(rint(2, 120)),
@@ -124,7 +133,6 @@ function buildInvoices(cohort: Cohort): Array<{
             "assigned_competitor",
             "assigned_competitor",
             "assigned_competitor",
-            "assigned_cepelin",
           ]),
         });
       }
@@ -253,6 +261,7 @@ async function main() {
           credit_limit: creditLimit,
           next_followup_date: spec.cohort === "churn_risk" ? daysAgo(-rint(1, 7)) : null,
           is_demo: group.isDemo,
+          credit_risk_score: rint(...CREDIT_RISK[spec.cohort]),
         })
         .select()
         .single();

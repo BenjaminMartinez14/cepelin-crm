@@ -69,3 +69,18 @@ const STATUS_LABELS: Record<string, string> = {
 export function statusLabel(status: string): string {
   return STATUS_LABELS[status] ?? status;
 }
+
+export function countryFlag(country: Country): string {
+  return country === "CL" ? "🇨🇱" : "🇲🇽";
+}
+
+export function creditRiskLabel(country: Country): string {
+  return country === "CL" ? "DICOM" : "Buró";
+}
+
+export function creditRiskClass(score: number | null): string {
+  if (score === null) return "text-muted-foreground";
+  if (score < 30) return "text-emerald-400";
+  if (score <= 60) return "text-amber-400";
+  return "text-red-400";
+}

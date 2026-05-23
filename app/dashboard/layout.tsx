@@ -4,7 +4,7 @@ import { SignOutButton } from "@/components/SignOutButton";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-900">
+      <header className="sticky top-0 z-40 border-b border-border bg-card">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
           <Link href="/dashboard" className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-primary" />

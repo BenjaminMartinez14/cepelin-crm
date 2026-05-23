@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyTable } from "@/components/companies/CompanyTable";
+import type { SortKey, SortDir } from "@/components/companies/CompanyTable";
 import { apiGet, apiPost } from "@/lib/api";
 import type { CompanyMetrics } from "@/types";
 
@@ -13,6 +14,8 @@ export default function DashboardPage() {
   const [companies, setCompanies] = useState<CompanyMetrics[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const fetchCompanies = useCallback(() => {
     apiGet<CompanyMetrics[]>("/api/companies")
@@ -41,6 +44,29 @@ export default function DashboardPage() {
       setRefreshing(false);
     }
   }
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
+
+  const sortedCompanies = (() => {
+    if (!companies || !sortKey) return companies;
+    return [...companies].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      // Nulls always last
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      const diff = (av as number) - (bv as number);
+      return sortDir === "asc" ? diff : -diff;
+    });
+  })();
 
   const atRisk = companies?.filter((c) => (c.days_since_last_op ?? 0) > 30).length ?? 0;
 
@@ -124,9 +150,14 @@ export default function DashboardPage() {
       )}
 
       {/* Table */}
-      {companies && companies.length > 0 && (
+      {sortedCompanies && sortedCompanies.length > 0 && (
         <Card className="overflow-hidden p-0">
-          <CompanyTable companies={companies} />
+          <CompanyTable
+            companies={sortedCompanies}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+          />
         </Card>
       )}
     </div>

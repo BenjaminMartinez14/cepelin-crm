@@ -13,7 +13,7 @@ export default async function LandingPage() {
   return (
     <main className="flex min-h-screen flex-col">
       {/* Top nav bar */}
-      <nav className="flex items-center justify-between px-8 py-5 bg-slate-900">
+      <nav className="flex items-center justify-between px-8 py-5 bg-card border-b border-border">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-primary" />
           <span className="text-sm font-semibold tracking-tight text-white">Cepelin</span>
