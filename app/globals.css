@@ -4,62 +4,37 @@
 
 @layer base {
   :root {
-    /* Cepelin brand — Xepelin-inspired */
-    --background: 210 20% 98%;        /* #F5F7FA */
-    --foreground: 222 47% 11%;        /* #0F172A */
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 157 100% 39%;          /* #00C97D — Xepelin green */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 17% 95%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 17% 95%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 157 100% 39%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 157 100% 39%;
-    --chart-1: 157 100% 39%;          /* green — primary metric */
-    --chart-2: 213 71% 52%;           /* blue */
-    --chart-3: 38 92% 50%;            /* amber */
-    --chart-4: 265 83% 57%;           /* violet */
-    --chart-5: 0 84% 60%;             /* red */
+    --background:           0 0% 4%;
+    --foreground:           0 0% 98%;
+    --card:                 0 0% 8%;
+    --card-foreground:      0 0% 98%;
+    --popover:              0 0% 8%;
+    --popover-foreground:   0 0% 98%;
+    --primary:              156 100% 43%;
+    --primary-foreground:   0 0% 4%;
+    --secondary:            0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted:                0 0% 8%;
+    --muted-foreground:     0 0% 45%;
+    --accent:               156 100% 43%;
+    --accent-foreground:    0 0% 4%;
+    --destructive:          0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border:               0 0% 15%;
+    --input:                0 0% 15%;
+    --ring:                 156 100% 43%;
+    --warning:              38 92% 50%;
+    --success:              156 100% 43%;
+    --chart-1:              156 100% 43%;
+    --chart-2:              213 71% 52%;
+    --chart-3:              38 92% 50%;
+    --chart-4:              265 83% 57%;
+    --chart-5:              0 84% 60%;
     --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222 47% 7%;
-    --foreground: 210 20% 98%;
-    --card: 222 47% 10%;
-    --card-foreground: 210 20% 98%;
-    --popover: 222 47% 10%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 157 100% 39%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 222 47% 15%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 222 47% 15%;
-    --muted-foreground: 215 16% 57%;
-    --accent: 157 100% 39%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 222 47% 18%;
-    --input: 222 47% 18%;
-    --ring: 157 100% 39%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
 }
