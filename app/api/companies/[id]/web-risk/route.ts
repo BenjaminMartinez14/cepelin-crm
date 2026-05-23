@@ -89,11 +89,13 @@ export async function GET(
           .single();
 
         if (insertErr) {
-          console.error("notes insert failed:", insertErr.message);
+          console.error("Note insert failed:", insertErr.message);
+          send(controller, { type: "done", noteId: null });
+        } else {
+          send(controller, { type: "done", noteId: insertedNote?.id ?? null });
         }
-
-        send(controller, { type: "done", noteId: insertedNote?.id ?? null });
-      } catch {
+      } catch (err) {
+        console.error("Web risk stream error:", err);
         send(controller, {
           type: "error",
           message: "No se pudo completar el análisis",
