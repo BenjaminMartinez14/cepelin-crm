@@ -8,7 +8,7 @@ import { CompanyHeader } from "@/components/detail/CompanyHeader";
 import { MetricsRow } from "@/components/detail/MetricsRow";
 import { AiAnalysis } from "@/components/detail/AiAnalysis";
 import { VolumeChart } from "@/components/detail/VolumeChart";
-import { InvoiceTable } from "@/components/detail/InvoiceTable";
+import { InvoiceAccordion } from "@/components/detail/InvoiceAccordion";
 import { TopDebtors } from "@/components/detail/TopDebtors";
 import { NotesSection } from "@/components/detail/NotesSection";
 import { apiGet } from "@/lib/api";
@@ -61,7 +61,7 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
             </div>
             <TopDebtors debtors={detail.top_debtors} country={detail.company.country} />
           </div>
-          <InvoiceTable invoices={detail.invoices} country={detail.company.country} />
+          <InvoiceAccordion invoices={detail.invoices} country={detail.company.country} />
           <NotesSection companyId={detail.company.id} initialNotes={detail.notes} />
         </>
       )}
