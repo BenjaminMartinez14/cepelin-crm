@@ -4,7 +4,7 @@ import { getAuthedKam } from "@/lib/auth";
 import { streamWebRiskAnalysis } from "@/lib/ai/web-risk";
 import type { CompanyMetrics } from "@/types";
 
-export const maxDuration = 60;
+export const runtime = "edge";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -96,10 +96,8 @@ export async function GET(
         }
       } catch (err) {
         console.error("Web risk stream error:", err);
-        send(controller, {
-          type: "error",
-          message: "No se pudo completar el análisis",
-        });
+        const msg = err instanceof Error ? err.message : "No se pudo completar el análisis";
+        send(controller, { type: "error", message: msg });
       } finally {
         controller.close();
       }

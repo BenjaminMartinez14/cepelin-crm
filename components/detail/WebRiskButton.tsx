@@ -43,6 +43,7 @@ export function WebRiskButton({ companyId, companyName }: WebRiskButtonProps) {
       const decoder = new TextDecoder();
       let buffer = "";
 
+      let receivedDone = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -60,12 +61,18 @@ export function WebRiskButton({ companyId, companyName }: WebRiskButtonProps) {
             setText((prev) => prev + (json.text ?? ""));
             setStatus("streaming");
           } else if (json.type === "done") {
+            receivedDone = true;
             setStatus("done");
           } else if (json.type === "error") {
+            receivedDone = true;
             setError(json.message ?? "Error desconocido");
             setStatus("error");
           }
         }
+      }
+      if (!receivedDone) {
+        setError("La conexión se cerró inesperadamente. Puede ser un timeout del servidor.");
+        setStatus("error");
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
