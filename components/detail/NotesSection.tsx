@@ -66,14 +66,25 @@ export function NotesSection({
           <p className="text-sm text-muted-foreground">Aún no hay notas.</p>
         ) : (
           <ul className="space-y-3">
-            {notes.map((note) => (
-              <li key={note.id} className="text-sm">
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(note.created_at)}
-                </p>
-                <p className="whitespace-pre-wrap">{note.content}</p>
-              </li>
-            ))}
+            {notes.map((note) => {
+              const isWebAnalysis = note.content.startsWith("[Análisis Web]");
+              const displayContent = isWebAnalysis
+                ? note.content.replace(/^\[Análisis Web\] \S+\n\n/, "")
+                : note.content;
+              return (
+                <li key={note.id} className="text-sm">
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(note.created_at)}
+                    {isWebAnalysis && (
+                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        🔍 Web
+                      </span>
+                    )}
+                  </p>
+                  <p className="whitespace-pre-wrap">{displayContent}</p>
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>

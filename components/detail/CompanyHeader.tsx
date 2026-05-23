@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CompanyStatusBadge } from "@/components/StatusBadge";
+import { WebRiskButton } from "@/components/detail/WebRiskButton";
 import { apiPatch } from "@/lib/api";
 import { formatDate, taxIdLabel } from "@/lib/format";
 import type { CompanyMetrics, Contact } from "@/types";
@@ -93,6 +94,9 @@ export function CompanyHeader({
             </button>
           )}
           {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+          <div className="mt-3">
+            <WebRiskButton companyId={company.id} companyName={company.name} />
+          </div>
         </div>
       </CardContent>
     </Card>
