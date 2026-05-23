@@ -22,13 +22,23 @@ export async function POST(
 ): Promise<NextResponse<ApiResponse<GenerateResult>>> {
   const supabase = createClient();
 
-  const kam = await getAuthedKam(supabase);
+  let kam;
+  try {
+    kam = await getAuthedKam(supabase);
+  } catch {
+    return NextResponse.json({ data: null, error: "Error de autenticación" }, { status: 500 });
+  }
   if (!kam) {
     return NextResponse.json({ data: null, error: "No autorizado" }, { status: 401 });
   }
 
   const body = (await req.json().catch(() => ({}))) as GenerateBody;
   const { companyId } = body;
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (companyId && !UUID_RE.test(companyId)) {
+    return NextResponse.json({ data: null, error: "companyId inválido" }, { status: 400 });
+  }
 
   // Fetch target companies from the view (RLS scopes to this KAM automatically).
   let query = supabase.from("company_metrics").select("*");
@@ -37,7 +47,11 @@ export async function POST(
   }
   const { data: companies, error: fetchErr } = await query;
   if (fetchErr) {
-    return NextResponse.json({ data: null, error: fetchErr.message }, { status: 500 });
+    console.error("company_metrics fetch failed:", fetchErr.message);
+    return NextResponse.json(
+      { data: null, error: "No se pudieron obtener las empresas" },
+      { status: 500 },
+    );
   }
 
   let processed = 0;
