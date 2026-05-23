@@ -1,0 +1,96 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { getAuthedKam } from "@/lib/auth";
+import { generateHealthScore } from "@/lib/ai/health-score";
+import type { ApiResponse, CompanyMetrics, TopDebtor } from "@/types";
+
+// Vercel Pro: 60s timeout for batch of ~15 companies (~20-30s total).
+// On Hobby plan (10s limit) only single-company calls will succeed.
+export const maxDuration = 60;
+
+interface GenerateBody {
+  companyId?: string;
+}
+
+interface GenerateResult {
+  processed: number;
+  errors: number;
+}
+
+export async function POST(
+  req: NextRequest,
+): Promise<NextResponse<ApiResponse<GenerateResult>>> {
+  const supabase = createClient();
+
+  const kam = await getAuthedKam(supabase);
+  if (!kam) {
+    return NextResponse.json({ data: null, error: "No autorizado" }, { status: 401 });
+  }
+
+  const body = (await req.json().catch(() => ({}))) as GenerateBody;
+  const { companyId } = body;
+
+  // Fetch target companies from the view (RLS scopes to this KAM automatically).
+  let query = supabase.from("company_metrics").select("*");
+  if (companyId) {
+    query = query.eq("id", companyId);
+  }
+  const { data: companies, error: fetchErr } = await query;
+  if (fetchErr) {
+    return NextResponse.json({ data: null, error: fetchErr.message }, { status: 500 });
+  }
+
+  let processed = 0;
+  let errors = 0;
+
+  // Sequential — no Promise.all to avoid Haiku rate limits.
+  for (const company of (companies ?? []) as CompanyMetrics[]) {
+    try {
+      // Fetch top 3 debtors for this company from invoices.
+      const { data: invoiceRows } = await supabase
+        .from("invoices")
+        .select("debtor_id, amount, debtors(name)")
+        .eq("company_id", company.id)
+        .in("status", ["assigned_cepelin", "in_collection", "collected"]);
+
+      const debtorMap = new Map<string, { name: string; total: number }>();
+      for (const row of invoiceRows ?? []) {
+        const debtorArr = row.debtors as { name: string } | { name: string }[] | null;
+        const name = Array.isArray(debtorArr) ? debtorArr[0]?.name : debtorArr?.name;
+        if (!name) continue;
+        const entry = debtorMap.get(row.debtor_id) ?? { name, total: 0 };
+        entry.total += Number(row.amount);
+        debtorMap.set(row.debtor_id, entry);
+      }
+      const topDebtors: TopDebtor[] = Array.from(debtorMap.entries())
+        .map(([debtor_id, { name, total }]) => ({ debtor_id, name, total }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 3);
+
+      const result = await generateHealthScore(company, topDebtors);
+
+      const { error: updateErr } = await supabase
+        .from("companies")
+        .update({
+          health_score: result.health_score,
+          churn_risk: result.churn_risk,
+          ai_summary: result.summary,
+          recommended_actions: result.recommended_actions,
+          ai_generated_at: new Date().toISOString(),
+        })
+        .eq("id", company.id);
+
+      if (updateErr) {
+        console.error(`Update failed for ${company.name}:`, updateErr.message);
+        errors++;
+      } else {
+        processed++;
+      }
+    } catch (err) {
+      console.error(`Score failed for ${company.name}:`, err);
+      errors++;
+    }
+  }
+
+  return NextResponse.json({ data: { processed, errors }, error: null });
+}
