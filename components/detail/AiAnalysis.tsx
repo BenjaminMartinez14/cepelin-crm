@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
-import { apiPost } from "@/lib/api";
-import type { CompanyMetrics } from "@/types";
+import { apiGet, apiPost } from "@/lib/api";
+import type { CompanyDetail, CompanyMetrics } from "@/types";
 
 function churnDotClass(risk: "low" | "medium" | "high"): string {
   if (risk === "low") return "bg-emerald-400";
@@ -45,11 +45,8 @@ export function AiAnalysis({ company: initialCompany }: AiAnalysisProps) {
         { companyId: company.id },
       );
       // Re-fetch company data to get the updated fields.
-      const res = await fetch(`/api/companies/${company.id}`);
-      const json = await res.json();
-      if (json.data) {
-        setCompany((prev) => ({ ...prev, ...json.data.company }));
-      }
+      const detail = await apiGet<CompanyDetail>(`/api/companies/${company.id}`);
+      setCompany((prev) => ({ ...prev, ...detail.company }));
       toast.success("Análisis IA actualizado");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al generar análisis");
@@ -68,6 +65,7 @@ export function AiAnalysis({ company: initialCompany }: AiAnalysisProps) {
           Análisis IA
         </h3>
         <button
+          type="button"
           onClick={handleGenerate}
           disabled={loading}
           className="flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
