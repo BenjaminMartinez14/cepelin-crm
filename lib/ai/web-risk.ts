@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import type { Country } from "@/types";
 
 export interface WebRiskStreamOptions {
@@ -26,36 +25,70 @@ Responde en español con dos secciones claramente separadas:
 Si no encuentras información relevante en alguna sección, indícalo explícitamente.`;
 }
 
-// Returns the full accumulated text when streaming is complete.
-// Calls onChunk for each text delta as it arrives.
-// Throws on OpenAI error or abort.
+// Uses raw fetch — Edge runtime compatible, no Node.js SDK needed.
 export async function streamWebRiskAnalysis(
   opts: WebRiskStreamOptions,
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
+  const apiKey = process.env.XAI_API_KEY;
+  if (!apiKey) throw new Error("XAI_API_KEY not configured");
 
-  const client = new OpenAI({ apiKey });
   const { company, onChunk, signal } = opts;
-
   const prompt = buildPrompt(company.name, company.tax_id, company.country);
 
-  const stream = await client.responses.create(
-    {
-      model: "gpt-4o-mini-search-preview",
-      tools: [{ type: "web_search_preview" }],
-      input: prompt,
-      stream: true,
+  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
     },
-    { signal },
-  );
+    body: JSON.stringify({
+      model: "grok-3-mini",
+      messages: [{ role: "user", content: prompt }],
+      stream: true,
+      search_parameters: { mode: "auto" },
+    }),
+    signal,
+  });
 
+  if (!res.ok || !res.body) {
+    const body = await res.text();
+    let msg = `xAI error ${res.status}`;
+    try {
+      msg = (JSON.parse(body) as { error?: { message?: string } }).error?.message ?? msg;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
   let accumulated = "";
-  for await (const chunk of stream) {
-    if (chunk.type === "response.output_text.delta") {
-      onChunk(chunk.delta);
-      accumulated += chunk.delta;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6).trim();
+      if (data === "[DONE]") continue;
+      try {
+        const chunk = JSON.parse(data) as {
+          choices?: Array<{ delta?: { content?: string } }>;
+        };
+        const text = chunk.choices?.[0]?.delta?.content;
+        if (text) {
+          onChunk(text);
+          accumulated += text;
+        }
+      } catch {
+        // malformed SSE line — skip
+      }
     }
   }
+
   return accumulated;
 }
