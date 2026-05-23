@@ -23,3 +23,16 @@ export async function apiPatch<T>(url: string, body: unknown): Promise<T> {
   }
   return json.data;
 }
+
+export async function apiPost<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json()) as ApiResponse<T>;
+  if (!res.ok || json.error || json.data === null) {
+    throw new Error(json.error ?? `Error ${res.status}`);
+  }
+  return json.data;
+}

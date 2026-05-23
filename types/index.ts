@@ -30,11 +30,12 @@ export interface Company {
   enrolled_at: string;
   credit_limit: number;
   next_followup_date: string | null;
+  credit_risk_score: number | null;
   // Part 2 (nullable until the AI service populates them).
   health_score: number | null;
   churn_risk: ChurnRisk | null;
   ai_summary: string | null;
-  recommended_actions: unknown | null;
+  recommended_actions: string[] | null;
   ai_generated_at: string | null;
 }
 
