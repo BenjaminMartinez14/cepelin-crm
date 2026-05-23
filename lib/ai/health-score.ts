@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import { z } from "zod";
 import type { CompanyMetrics, TopDebtor } from "@/types";
 
+// xAI Grok is OpenAI-compatible; we reuse the SDK with a different base URL.
+
 // Cost estimate at scale:
 // gpt-4o-mini: ~$0.001 per company analysis
 // 10K companies/month ≈ $10/month
@@ -77,7 +79,7 @@ async function callWithTimeout(
   try {
     const response = await client.chat.completions.create(
       {
-        model: "gpt-4o-mini",
+        model: "grok-3-mini",
         max_tokens: 512,
         temperature: 0,
         messages: [
@@ -102,10 +104,10 @@ export async function generateHealthScore(
   company: CompanyMetrics,
   topDebtors: TopDebtor[],
 ): Promise<HealthScoreResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
+  const apiKey = process.env.XAI_API_KEY;
+  if (!apiKey) throw new Error("XAI_API_KEY not configured");
 
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAI({ apiKey, baseURL: "https://api.x.ai/v1" });
   const prompt = buildUserPrompt(company, topDebtors);
 
   let raw = await callWithTimeout(client, prompt);
