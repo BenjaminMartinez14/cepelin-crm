@@ -1,6 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { z } from "zod";
 import type { CompanyMetrics, TopDebtor } from "@/types";
+
+// Cost estimate at scale:
+// gpt-4o-mini: ~$0.001 per company analysis
+// 10K companies/month ≈ $10/month
+// Latency: ~1-2s per company
+// Batch of 15 companies: ~20-30s total
 
 export interface HealthScoreResult {
   health_score: number;
@@ -62,32 +68,31 @@ function tryParse(raw: string) {
 }
 
 async function callWithTimeout(
-  client: Anthropic,
+  client: OpenAI,
   prompt: string,
 ): Promise<string> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15_000);
 
   try {
-    const msg = await client.messages.create(
+    const response = await client.chat.completions.create(
       {
-        model: "claude-haiku-4-5-20251001",
+        model: "gpt-4o-mini",
         max_tokens: 512,
         temperature: 0,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: prompt },
+        ],
       },
-      { signal: controller.signal as AbortSignal },
+      { signal: controller.signal },
     );
 
-    if (!msg.content.length) {
-      throw new Error("Empty response from LLM");
-    }
-    const block = msg.content[0];
-    if (block.type !== "text") {
-      throw new Error(`Unexpected content block type: ${block.type}`);
-    }
-    return block.text;
+    const choice = response.choices[0];
+    if (!choice) throw new Error("Empty response from LLM");
+    const text = choice.message.content;
+    if (!text) throw new Error("Empty message content from LLM");
+    return text;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -97,10 +102,10 @@ export async function generateHealthScore(
   company: CompanyMetrics,
   topDebtors: TopDebtor[],
 ): Promise<HealthScoreResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
 
-  const client = new Anthropic({ apiKey });
+  const client = new OpenAI({ apiKey });
   const prompt = buildUserPrompt(company, topDebtors);
 
   let raw = await callWithTimeout(client, prompt);
