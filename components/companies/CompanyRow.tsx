@@ -135,7 +135,7 @@ export function CompanyRow({ company, onPillClick, activePillStatus }: CompanyRo
       </TableCell>
 
       <TableCell className="py-3.5 text-right">
-        {company.health_score === null ? (
+        {company.health_score === null || (company.health_score === 0 && company.ai_generated_at === null) ? (
           <span className="text-muted-foreground">—</span>
         ) : (
           <div className="flex items-center justify-end gap-1.5">
