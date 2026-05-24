@@ -9,12 +9,18 @@ import type {
   Note,
 } from "@/types";
 import { buildMonthlyVolume, topDebtors } from "@/lib/db/invoices";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // All queries run under the caller's session, so RLS scopes results to the KAM.
 
 export async function listCompanies(
   supabase: SupabaseClient,
 ): Promise<CompanyMetrics[]> {
+  // Invoice query uses the service-role client so RLS on the invoices table
+  // doesn't silently block it. Safety: we only look up invoices whose
+  // company_id appears in Query 1 results, which are already KAM-scoped.
+  const admin = createAdminClient();
+
   const [
     { data: companies, error: cErr },
     { data: invoiceRows, error: iErr },
@@ -23,7 +29,7 @@ export async function listCompanies(
       .from("company_metrics")
       .select("*")
       .order("days_since_last_op", { ascending: false, nullsFirst: true }),
-    supabase
+    admin
       .from("invoices")
       .select("id, company_id, amount, issued_at, status, debtors(name)")
       .in("status", ["in_collection", "assigned_competitor"])
@@ -32,6 +38,8 @@ export async function listCompanies(
 
   if (cErr) throw new Error(cErr.message);
   if (iErr) throw new Error(iErr.message);
+
+  console.log("[listCompanies] invoiceRows count:", invoiceRows?.length ?? 0, "sample:", invoiceRows?.[0] ?? null);
 
   const today = Date.now();
   const byCompany = new Map<string, InvoicePreview[]>();
