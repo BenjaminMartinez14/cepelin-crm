@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import {
   Table,
@@ -7,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CompanyRow } from "@/components/companies/CompanyRow";
+import { CompanyInvoiceDropdown } from "@/components/companies/CompanyInvoiceDropdown";
 import type { CompanyMetrics } from "@/types";
 
 export type SortKey =
@@ -59,6 +61,14 @@ function SortableHead({
 }
 
 export function CompanyTable({ companies, sortKey, sortDir, onSort }: CompanyTableProps) {
+  const [openRow, setOpenRow] = useState<{ companyId: string; status: string } | null>(null);
+
+  function handlePillClick(companyId: string, status: string) {
+    setOpenRow((prev) =>
+      prev?.companyId === companyId && prev.status === status ? null : { companyId, status }
+    );
+  }
+
   return (
     <Table>
       <TableHeader>
@@ -84,9 +94,42 @@ export function CompanyTable({ companies, sortKey, sortDir, onSort }: CompanyTab
       </TableHeader>
       <TableBody>
         {companies.map((company) => (
-          <CompanyRow key={company.id} company={company} />
+          <CompanyTableSection
+            key={company.id}
+            company={company}
+            openRow={openRow}
+            onPillClick={handlePillClick}
+          />
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+function CompanyTableSection({
+  company,
+  openRow,
+  onPillClick,
+}: {
+  company: CompanyMetrics;
+  openRow: { companyId: string; status: string } | null;
+  onPillClick: (companyId: string, status: string) => void;
+}) {
+  const isOpen = openRow?.companyId === company.id;
+  return (
+    <>
+      <CompanyRow
+        company={company}
+        onPillClick={onPillClick}
+        activePillStatus={isOpen ? openRow!.status : undefined}
+      />
+      {isOpen && (
+        <CompanyInvoiceDropdown
+          companyId={company.id}
+          status={openRow!.status}
+          country={company.country}
+        />
+      )}
+    </>
   );
 }

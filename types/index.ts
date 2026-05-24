@@ -47,6 +47,7 @@ export interface CompanyMetrics extends Omit<Company, "kam_id"> {
   days_since_last_op: number | null;
   volume_60d: number;
   sow_percentage: number | null;
+  invoice_status_counts: Record<string, number> | null;
 }
 
 export interface Contact {

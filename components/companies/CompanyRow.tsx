@@ -15,6 +15,49 @@ import {
 } from "@/lib/format";
 import type { CompanyMetrics } from "@/types";
 
+const URGENT_STATUSES: { key: string; label: string; dotClass: string }[] = [
+  { key: "in_collection", label: "en cobranza", dotClass: "bg-red-500" },
+  { key: "assigned_competitor", label: "competidor", dotClass: "bg-amber-500" },
+];
+
+function InvoiceStatusPills({
+  companyId,
+  counts,
+  activePillStatus,
+  onPillClick,
+}: {
+  companyId: string;
+  counts: Record<string, number> | null;
+  activePillStatus?: string;
+  onPillClick?: (companyId: string, status: string) => void;
+}) {
+  if (!counts) return null;
+  const pills = URGENT_STATUSES.filter(({ key }) => (counts[key] ?? 0) > 0);
+  if (pills.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1.5">
+      {pills.map(({ key, label, dotClass }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPillClick?.(companyId, key);
+          }}
+          className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+            activePillStatus === key
+              ? "bg-muted-foreground/20 text-foreground ring-1 ring-border"
+              : "bg-muted text-muted-foreground hover:bg-muted-foreground/15"
+          }`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+          {counts[key]} {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function churnDotClass(risk: "low" | "medium" | "high" | null): string {
   if (risk === "low") return "bg-emerald-400";
   if (risk === "medium") return "bg-amber-400";
@@ -22,7 +65,13 @@ function churnDotClass(risk: "low" | "medium" | "high" | null): string {
   return "bg-muted";
 }
 
-export function CompanyRow({ company }: { company: CompanyMetrics }) {
+interface CompanyRowProps {
+  company: CompanyMetrics;
+  onPillClick?: (companyId: string, status: string) => void;
+  activePillStatus?: string;
+}
+
+export function CompanyRow({ company, onPillClick, activePillStatus }: CompanyRowProps) {
   const router = useRouter();
   const sow = company.sow_percentage ?? 0;
   const urgency = urgencyLevel(company.days_since_last_op);
@@ -39,6 +88,12 @@ export function CompanyRow({ company }: { company: CompanyMetrics }) {
         <div className="text-xs text-muted-foreground">
           {taxIdLabel(company.country)} {company.tax_id}
         </div>
+        <InvoiceStatusPills
+          companyId={company.id}
+          counts={company.invoice_status_counts}
+          activePillStatus={activePillStatus}
+          onPillClick={onPillClick}
+        />
       </TableCell>
 
       <TableCell className="py-3.5">
