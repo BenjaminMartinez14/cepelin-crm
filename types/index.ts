@@ -39,6 +39,16 @@ export interface Company {
   ai_generated_at: string | null;
 }
 
+// Lightweight invoice shape embedded in the company list response.
+export interface InvoicePreview {
+  id: string;
+  debtor_name: string;
+  amount: number;
+  issued_at: string;
+  days_since_issued: number;
+  status: InvoiceStatus;
+}
+
 // company_metrics view: company columns + computed fields.
 export interface CompanyMetrics extends Omit<Company, "kam_id"> {
   kam_id: string;
@@ -48,6 +58,7 @@ export interface CompanyMetrics extends Omit<Company, "kam_id"> {
   volume_60d: number;
   sow_percentage: number | null;
   invoice_status_counts: Record<string, number> | null;
+  urgent_invoices: InvoicePreview[];
 }
 
 export interface Contact {

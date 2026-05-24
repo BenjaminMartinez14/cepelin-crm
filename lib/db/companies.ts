@@ -3,6 +3,8 @@ import type {
   CompanyMetrics,
   CompanyDetail,
   Contact,
+  InvoicePreview,
+  InvoiceStatus,
   InvoiceWithDebtor,
   Note,
 } from "@/types";
@@ -13,13 +15,48 @@ import { buildMonthlyVolume, topDebtors } from "@/lib/db/invoices";
 export async function listCompanies(
   supabase: SupabaseClient,
 ): Promise<CompanyMetrics[]> {
-  const { data, error } = await supabase
-    .from("company_metrics")
-    .select("*")
-    .order("days_since_last_op", { ascending: false, nullsFirst: true });
+  const [
+    { data: companies, error: cErr },
+    { data: invoiceRows, error: iErr },
+  ] = await Promise.all([
+    supabase
+      .from("company_metrics")
+      .select("*")
+      .order("days_since_last_op", { ascending: false, nullsFirst: true }),
+    supabase
+      .from("invoices")
+      .select("id, company_id, amount, issued_at, status, debtors(name)")
+      .in("status", ["in_collection", "assigned_competitor"])
+      .order("issued_at", { ascending: false }),
+  ]);
 
-  if (error) throw new Error(error.message);
-  return (data ?? []) as CompanyMetrics[];
+  if (cErr) throw new Error(cErr.message);
+  if (iErr) throw new Error(iErr.message);
+
+  const today = Date.now();
+  const byCompany = new Map<string, InvoicePreview[]>();
+  for (const row of invoiceRows ?? []) {
+    const debtor = row.debtors as { name: string } | { name: string }[] | null;
+    const debtorName = Array.isArray(debtor) ? debtor[0]?.name : debtor?.name;
+    const preview: InvoicePreview = {
+      id: row.id,
+      debtor_name: debtorName ?? "—",
+      amount: Number(row.amount),
+      issued_at: row.issued_at,
+      days_since_issued: Math.floor(
+        (today - new Date(row.issued_at).getTime()) / 86_400_000,
+      ),
+      status: row.status as InvoiceStatus,
+    };
+    const list = byCompany.get(row.company_id) ?? [];
+    list.push(preview);
+    byCompany.set(row.company_id, list);
+  }
+
+  return (companies ?? []).map((company) => ({
+    ...(company as CompanyMetrics),
+    urgent_invoices: byCompany.get(company.id) ?? [],
+  }));
 }
 
 export async function getCompanyDetail(

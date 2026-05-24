@@ -1,14 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { LayoutGrid, List, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyTable } from "@/components/companies/CompanyTable";
+import { KanbanView } from "@/components/companies/KanbanView";
 import type { SortKey, SortDir } from "@/components/companies/CompanyTable";
 import { apiGet, apiPost } from "@/lib/api";
 import type { CompanyMetrics } from "@/types";
+
+type ViewMode = "table" | "kanban";
+
+function useViewMode(): [ViewMode, (v: ViewMode) => void] {
+  const [view, setView] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "table";
+    return (localStorage.getItem("dashboard-view") as ViewMode) ?? "table";
+  });
+  function set(v: ViewMode) {
+    setView(v);
+    localStorage.setItem("dashboard-view", v);
+  }
+  return [view, set];
+}
 
 export default function DashboardPage() {
   const [companies, setCompanies] = useState<CompanyMetrics[] | null>(null);
@@ -16,6 +31,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [view, setView] = useViewMode();
 
   const fetchCompanies = useCallback(() => {
     apiGet<CompanyMetrics[]>("/api/companies")
@@ -105,6 +121,26 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+          {/* View toggle */}
+          <div className="flex items-center rounded-md border border-border bg-card">
+            <button
+              type="button"
+              onClick={() => setView("table")}
+              className={`flex items-center rounded-l-md px-2.5 py-1.5 text-xs transition-colors ${view === "table" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+              title="Vista tabla"
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("kanban")}
+              className={`flex items-center rounded-r-md border-l border-border px-2.5 py-1.5 text-xs transition-colors ${view === "kanban" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+              title="Vista kanban"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={handleRefreshScores}
@@ -158,7 +194,7 @@ export default function DashboardPage() {
       )}
 
       {/* Table */}
-      {sortedCompanies && sortedCompanies.length > 0 && (
+      {sortedCompanies && sortedCompanies.length > 0 && view === "table" && (
         <Card className="overflow-hidden p-0">
           <CompanyTable
             companies={sortedCompanies}
@@ -167,6 +203,11 @@ export default function DashboardPage() {
             onSort={handleSort}
           />
         </Card>
+      )}
+
+      {/* Kanban */}
+      {sortedCompanies && sortedCompanies.length > 0 && view === "kanban" && (
+        <KanbanView companies={sortedCompanies} />
       )}
     </div>
   );

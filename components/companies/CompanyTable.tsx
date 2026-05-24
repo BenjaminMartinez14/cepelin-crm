@@ -116,6 +116,9 @@ function CompanyTableSection({
   onPillClick: (companyId: string, status: string) => void;
 }) {
   const isOpen = openRow?.companyId === company.id;
+  const visibleInvoices = isOpen
+    ? (company.urgent_invoices ?? []).filter((inv) => inv.status === openRow!.status)
+    : [];
   return (
     <>
       <CompanyRow
@@ -125,8 +128,7 @@ function CompanyTableSection({
       />
       {isOpen && (
         <CompanyInvoiceDropdown
-          companyId={company.id}
-          status={openRow!.status}
+          invoices={visibleInvoices}
           country={company.country}
         />
       )}
