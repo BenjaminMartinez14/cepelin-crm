@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyHeader } from "@/components/detail/CompanyHeader";
 import { MetricsRow } from "@/components/detail/MetricsRow";
 import { AiAnalysis } from "@/components/detail/AiAnalysis";
+import { WhatsappSummaryCard } from "@/components/detail/WhatsappSummaryCard";
 import { VolumeChart } from "@/components/detail/VolumeChart";
 import { InvoiceAccordion } from "@/components/detail/InvoiceAccordion";
 import { TopDebtors } from "@/components/detail/TopDebtors";
@@ -51,7 +52,22 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
         <>
           <CompanyHeader company={detail.company} contacts={detail.contacts} />
           <MetricsRow company={detail.company} />
+
+          <WhatsappSummaryCard company={detail.company} />
+
+          {detail.company.interaction_summary && (
+            <Card className="p-5">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                Última interacción KAM
+              </h3>
+              <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                {detail.company.interaction_summary}
+              </p>
+            </Card>
+          )}
+
           <AiAnalysis company={detail.company} />
+
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <VolumeChart
@@ -61,6 +77,7 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
             </div>
             <TopDebtors debtors={detail.top_debtors} country={detail.company.country} />
           </div>
+
           <InvoiceAccordion invoices={detail.invoices} country={detail.company.country} />
           <NotesSection companyId={detail.company.id} initialNotes={detail.notes} />
         </>

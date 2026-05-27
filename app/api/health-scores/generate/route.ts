@@ -65,7 +65,7 @@ export async function POST(
         .from("invoices")
         .select("debtor_id, amount, debtors(name)")
         .eq("company_id", company.id)
-        .in("status", ["assigned_cepelin", "in_collection", "collected"]);
+        .in("status", ["cedida_xepelin", "en_cobranza", "cobrada"]);
 
       const debtorMap = new Map<string, { name: string; total: number }>();
       for (const row of invoiceRows ?? []) {
@@ -91,6 +91,7 @@ export async function POST(
           ai_summary: result.summary,
           recommended_actions: result.recommended_actions,
           ai_generated_at: new Date().toISOString(),
+          key_insight: result.key_insight ?? null,
         })
         .eq("id", company.id);
 

@@ -6,7 +6,7 @@ import type {
   Note,
 } from "@/types";
 
-const CEPELIN_PROCESSED = ["assigned_cepelin", "in_collection", "collected"];
+const CEPELIN_PROCESSED = ["cedida_xepelin", "en_cobranza", "cobrada"];
 
 // Last `months` buckets of Cepelin-processed volume, oldest first, zero-filled.
 export function buildMonthlyVolume(

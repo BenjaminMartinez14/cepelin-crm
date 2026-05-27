@@ -139,6 +139,16 @@ export function AiAnalysis({ company: initialCompany }: AiAnalysisProps) {
               </div>
             )}
 
+          {/* Key insight */}
+          {company.key_insight && (
+            <div className="rounded-md bg-primary/5 border-l-4 border-primary px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary mb-1">
+                💡 Insight clave
+              </p>
+              <p className="text-sm text-foreground">{company.key_insight}</p>
+            </div>
+          )}
+
           {/* Timestamp */}
           {company.ai_generated_at && (
             <p className="text-xs text-muted-foreground">

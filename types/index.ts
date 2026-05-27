@@ -5,13 +5,36 @@ export type Country = "CL" | "MX";
 export type CompanyStatus = "enrolled" | "active" | "recurring";
 
 export type InvoiceStatus =
-  | "issued"
-  | "assigned_cepelin"
-  | "assigned_competitor"
-  | "in_collection"
-  | "collected";
+  // CL — SII DTE lifecycle
+  | "emitida"
+  | "aceptada_sii"
+  | "entregada_receptor"
+  | "acuse_recibo"
+  | "reclamada"
+  | "merito_ejecutivo"
+  | "cedida_xepelin"
+  | "cedida_competencia"
+  | "en_cobranza"
+  | "cobrada"
+  | "protestada"
+  // MX — SAT CFDI
+  | "vigente"
+  | "cancelada"
+  | "cedida_mx";
 
 export type ChurnRisk = "low" | "medium" | "high";
+
+export type UrgencyLabel =
+  | "gestionar_hoy"
+  | "gestionar_semana"
+  | "al_dia"
+  | "sin_accion";
+
+export type ManagementStatus =
+  | "por_gestionar"
+  | "en_seguimiento"
+  | "gestionado"
+  | "en_pausa";
 
 export interface KAM {
   id: string;
@@ -59,6 +82,21 @@ export interface CompanyMetrics extends Omit<Company, "kam_id"> {
   sow_percentage: number | null;
   invoice_status_counts: Record<string, number> | null;
   urgent_invoices: InvoicePreview[];
+  // Qualitative AI context fields
+  sector: string | null;
+  interaction_summary: string | null;
+  news_context: string | null;
+  whatsapp_summary: string | null;
+  // Weekly management workflow
+  management_status: ManagementStatus;
+  management_updated_at: string | null;
+  // Computed alert flags (from SQL view)
+  has_reclamada: boolean;
+  has_stale_entregada: boolean;
+  // AI-generated insight (stored in companies table)
+  key_insight: string | null;
+  // Computed in TypeScript by listCompanies() / getCompanyDetail()
+  urgency_label: UrgencyLabel;
 }
 
 export interface Contact {

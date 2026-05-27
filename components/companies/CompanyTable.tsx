@@ -75,6 +75,7 @@ export function CompanyTable({ companies, sortKey, sortDir, onSort }: CompanyTab
     <Table>
       <TableHeader>
         <TableRow className="border-b bg-muted/40 hover:bg-muted/40">
+          <TableHead className="py-3 font-semibold text-foreground">Prioridad</TableHead>
           <TableHead className="py-3 font-semibold text-foreground">Empresa</TableHead>
           <TableHead className="py-3 font-semibold text-foreground">Estado</TableHead>
           <SortableHead col="volume_60d" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="text-right">

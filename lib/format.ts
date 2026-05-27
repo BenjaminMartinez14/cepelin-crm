@@ -1,4 +1,4 @@
-import type { Country } from "@/types";
+import type { Country, UrgencyLabel } from "@/types";
 
 const CURRENCY_BY_COUNTRY: Record<Country, { currency: string; locale: string }> = {
   CL: { currency: "CLP", locale: "es-CL" },
@@ -56,14 +56,25 @@ export function formatDaysSince(daysSinceLastOp: number | null): string {
 }
 
 const STATUS_LABELS: Record<string, string> = {
+  // Company statuses
   enrolled: "Enrolada",
   active: "Activa",
   recurring: "Recurrente",
-  issued: "Emitida",
-  assigned_cepelin: "Cedida a Cepelin",
-  assigned_competitor: "Cedida a competencia",
-  in_collection: "En cobranza",
-  collected: "Cobrada",
+  // Invoice statuses (SII/SAT lifecycle)
+  emitida: "Emitida",
+  aceptada_sii: "Aceptada SII",
+  entregada_receptor: "Entregada al receptor",
+  acuse_recibo: "Acuse de recibo",
+  reclamada: "Reclamada",
+  merito_ejecutivo: "Mérito ejecutivo",
+  cedida_xepelin: "Cedida a Xepelin",
+  cedida_competencia: "Cedida a competencia",
+  en_cobranza: "En cobranza",
+  cobrada: "Cobrada",
+  protestada: "Protestada",
+  vigente: "Vigente",
+  cancelada: "Cancelada",
+  cedida_mx: "Cedida a Xepelin MX",
 };
 
 export function statusLabel(status: string): string {
@@ -83,4 +94,31 @@ export function creditRiskClass(score: number | null): string {
   if (score < 30) return "text-emerald-400";
   if (score <= 60) return "text-amber-400";
   return "text-red-400";
+}
+
+export function urgencyLabel(label: UrgencyLabel): string {
+  switch (label) {
+    case "gestionar_hoy":    return "Gestionar hoy";
+    case "gestionar_semana": return "Esta semana";
+    case "al_dia":           return "Al día";
+    case "sin_accion":       return "Sin acción";
+  }
+}
+
+export function urgencyLabelClass(label: UrgencyLabel): string {
+  switch (label) {
+    case "gestionar_hoy":    return "bg-red-50 text-red-700 border border-red-200";
+    case "gestionar_semana": return "bg-amber-50 text-amber-700 border border-amber-200";
+    case "al_dia":           return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    case "sin_accion":       return "bg-slate-100 text-slate-500 border border-slate-200";
+  }
+}
+
+export function urgencyLabelEmoji(label: UrgencyLabel): string {
+  switch (label) {
+    case "gestionar_hoy":    return "🔴";
+    case "gestionar_semana": return "🟡";
+    case "al_dia":           return "🟢";
+    case "sin_accion":       return "⚪";
+  }
 }

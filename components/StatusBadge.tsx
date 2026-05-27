@@ -9,11 +9,26 @@ const COMPANY_VARIANTS: Record<CompanyStatus, string> = {
 };
 
 const INVOICE_VARIANTS: Record<InvoiceStatus, string> = {
-  issued:              "bg-slate-100 text-slate-600",
-  assigned_cepelin:    "bg-emerald-50 text-emerald-700",
-  assigned_competitor: "bg-red-50 text-red-700",
-  in_collection:       "bg-amber-50 text-amber-700",
-  collected:           "bg-teal-50 text-teal-700",
+  // 🔴 Red — problematic, cannot factor
+  reclamada:            "bg-red-50 text-red-700 border border-red-200",
+  protestada:           "bg-red-50 text-red-700 border border-red-200",
+  cancelada:            "bg-red-50 text-red-700 border border-red-200",
+  // 🟠 Orange — pending SII validation / debtor delivery
+  emitida:              "bg-orange-50 text-orange-700 border border-orange-200",
+  aceptada_sii:         "bg-orange-50 text-orange-700 border border-orange-200",
+  entregada_receptor:   "bg-orange-50 text-orange-700 border border-orange-200",
+  // 🟡 Amber — in process / competitor assigned
+  en_cobranza:          "bg-amber-50 text-amber-700",
+  cedida_competencia:   "bg-amber-50 text-amber-700",
+  cedida_mx:            "bg-amber-50 text-amber-700",
+  // 🔵 Blue — confirmed / safe to factor / Xepelin-assigned
+  acuse_recibo:         "bg-blue-50 text-blue-700 border border-blue-200",
+  merito_ejecutivo:     "bg-blue-50 text-blue-700 border border-blue-200",
+  cedida_xepelin:       "bg-blue-50 text-blue-700 border border-blue-200",
+  // 🟢 Emerald — completed
+  cobrada:              "bg-emerald-50 text-emerald-700",
+  // ⚪ Slate — neutral / active CFDI
+  vigente:              "bg-slate-100 text-slate-600",
 };
 
 export function CompanyStatusBadge({ status }: { status: CompanyStatus }) {

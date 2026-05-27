@@ -12,7 +12,7 @@ import {
   urgencyTextClass,
 } from "@/lib/format";
 import { InvoiceStatusBadge } from "@/components/StatusBadge";
-import type { CompanyMetrics, CompanyStatus } from "@/types";
+import type { CompanyMetrics, CompanyStatus, UrgencyLabel } from "@/types";
 
 const COLUMNS: {
   status: CompanyStatus;
@@ -26,9 +26,17 @@ const COLUMNS: {
 ];
 
 const URGENT_STATUSES = [
-  { key: "in_collection",       label: "en cobranza", dotClass: "bg-red-500"   },
-  { key: "assigned_competitor", label: "competidor",  dotClass: "bg-amber-500" },
+  { key: "reclamada",          label: "reclamada",   dotClass: "bg-red-500"    },
+  { key: "en_cobranza",        label: "en cobranza", dotClass: "bg-amber-500"  },
+  { key: "cedida_competencia", label: "competidor",  dotClass: "bg-orange-400" },
 ];
+
+function urgencyBorderClass(label: UrgencyLabel): string {
+  if (label === "gestionar_hoy")    return "border-l-2 border-l-red-400";
+  if (label === "gestionar_semana") return "border-l-2 border-l-amber-400";
+  if (label === "al_dia")           return "border-l-2 border-l-emerald-400";
+  return "";
+}
 
 function churnDotClass(risk: "low" | "medium" | "high" | null): string {
   if (risk === "low")    return "bg-emerald-400";
@@ -64,7 +72,7 @@ function CompanyCard({
 
   return (
     <div
-      className="rounded-md border border-border bg-card shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
+      className={`rounded-md border border-border bg-card shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/5 ${urgencyBorderClass(company.urgency_label)}`}
       onClick={() => router.push(`/dashboard/${company.id}`)}
     >
       <div className="cursor-pointer p-3">

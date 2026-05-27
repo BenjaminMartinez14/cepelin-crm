@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { CompanyStatusBadge } from "@/components/StatusBadge";
+import { UrgencyBadge } from "@/components/companies/UrgencyBadge";
 import {
   countryFlag,
   creditRiskClass,
@@ -17,8 +18,9 @@ import {
 import type { CompanyMetrics } from "@/types";
 
 const URGENT_STATUSES: { key: string; label: string; dotClass: string }[] = [
-  { key: "in_collection", label: "en cobranza", dotClass: "bg-red-500" },
-  { key: "assigned_competitor", label: "competidor", dotClass: "bg-amber-500" },
+  { key: "reclamada",          label: "reclamada",   dotClass: "bg-red-500"   },
+  { key: "en_cobranza",        label: "en cobranza", dotClass: "bg-amber-500" },
+  { key: "cedida_competencia", label: "competidor",  dotClass: "bg-orange-400" },
 ];
 
 function InvoiceStatusPills({
@@ -85,6 +87,10 @@ export function CompanyRow({ company, onPillClick, activePillStatus }: CompanyRo
       className="cursor-pointer transition-colors duration-150 hover:bg-primary/5"
       onClick={() => router.push(`/dashboard/${company.id}`)}
     >
+      <TableCell className="py-3.5">
+        <UrgencyBadge label={company.urgency_label} />
+      </TableCell>
+
       <TableCell className="py-3.5">
         <div className="font-medium text-foreground">
           <span className="mr-1.5">{countryFlag(company.country)}</span>{company.name}

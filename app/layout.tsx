@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const jakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -23,7 +24,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${jakartaSans.variable} font-sans antialiased`}>
-        {children}
+        <TooltipProvider>{children}</TooltipProvider>
         <Toaster />
       </body>
     </html>

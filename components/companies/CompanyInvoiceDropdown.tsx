@@ -13,7 +13,7 @@ interface Props {
 export function CompanyInvoiceDropdown({ invoices, country }: Props) {
   return (
     <TableRow className="hover:bg-transparent">
-      <TableCell colSpan={7} className="px-4 pb-3 pt-0">
+      <TableCell colSpan={8} className="px-4 pb-3 pt-0">
         <div className="rounded-md border border-border/50 bg-muted/30 overflow-hidden">
           {invoices.length === 0 ? (
             <p className="px-3 py-2 text-xs text-muted-foreground">Sin facturas.</p>

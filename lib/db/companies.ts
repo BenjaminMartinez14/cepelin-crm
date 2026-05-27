@@ -6,20 +6,48 @@ import type {
   InvoicePreview,
   InvoiceStatus,
   InvoiceWithDebtor,
+  ManagementStatus,
   Note,
+  UrgencyLabel,
 } from "@/types";
 import { buildMonthlyVolume, topDebtors } from "@/lib/db/invoices";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // All queries run under the caller's session, so RLS scopes results to the KAM.
 
+export function computeUrgencyLabel(c: Omit<CompanyMetrics, "urgency_label">, today: Date): UrgencyLabel {
+  const todayStr = today.toISOString().slice(0, 10);
+
+  // 🔴 GESTIONAR HOY — highest priority
+  if (
+    (c.next_followup_date !== null && c.next_followup_date <= todayStr) ||
+    (c.churn_risk === "high" && (c.days_since_last_op ?? 999) > 30) ||
+    c.has_reclamada ||
+    c.has_stale_entregada
+  ) return "gestionar_hoy";
+
+  // 🟡 GESTIONAR ESTA SEMANA
+  const sevenDaysOut = new Date(today);
+  sevenDaysOut.setDate(today.getDate() + 7);
+  const sevenStr = sevenDaysOut.toISOString().slice(0, 10);
+  if (
+    (c.next_followup_date !== null && c.next_followup_date > todayStr && c.next_followup_date <= sevenStr) ||
+    ((c.days_since_last_op ?? 0) >= 15 && (c.days_since_last_op ?? 0) <= 30) ||
+    ((c.sow_percentage ?? 100) < 40 && c.days_since_last_op !== null)
+  ) return "gestionar_semana";
+
+  // ⚪ SIN ACCIÓN — enrolled with no operations at all
+  if (c.status === "enrolled" && c.days_since_last_op === null) return "sin_accion";
+
+  // 🟢 AL DÍA
+  return "al_dia";
+}
+
 export async function listCompanies(
   supabase: SupabaseClient,
 ): Promise<CompanyMetrics[]> {
-  // Invoice query uses the service-role client so RLS on the invoices table
-  // doesn't silently block it. Safety: we only look up invoices whose
-  // company_id appears in Query 1 results, which are already KAM-scoped.
   const admin = createAdminClient();
+  const today = new Date();
 
   const [
     { data: companies, error: cErr },
@@ -27,12 +55,11 @@ export async function listCompanies(
   ] = await Promise.all([
     supabase
       .from("company_metrics")
-      .select("*")
-      .order("days_since_last_op", { ascending: false, nullsFirst: true }),
+      .select("*"),
     admin
       .from("invoices")
       .select("id, company_id, debtor_id, amount, issued_at, status")
-      .in("status", ["in_collection", "assigned_competitor"])
+      .in("status", ["en_cobranza", "cedida_competencia", "reclamada"])
       .order("issued_at", { ascending: false }),
   ]);
 
@@ -52,7 +79,7 @@ export async function listCompanies(
     (debtorRows ?? []).map((d) => [d.id, d.name as string]),
   );
 
-  const today = Date.now();
+  const nowMs = Date.now();
   const byCompany = new Map<string, InvoicePreview[]>();
   for (const row of rawInvoices ?? []) {
     const preview: InvoicePreview = {
@@ -61,7 +88,7 @@ export async function listCompanies(
       amount: Number(row.amount),
       issued_at: row.issued_at,
       days_since_issued: Math.floor(
-        (today - new Date(row.issued_at).getTime()) / 86_400_000,
+        (nowMs - new Date(row.issued_at).getTime()) / 86_400_000,
       ),
       status: row.status as InvoiceStatus,
     };
@@ -70,10 +97,26 @@ export async function listCompanies(
     byCompany.set(row.company_id, list);
   }
 
-  return (companies ?? []).map((company) => ({
-    ...(company as CompanyMetrics),
+  const withUrgent = (companies ?? []).map((company) => ({
+    ...(company as Omit<CompanyMetrics, "urgency_label">),
     urgent_invoices: byCompany.get(company.id) ?? [],
   }));
+
+  // Sort by urgency priority, then days_since_last_op descending within each tier
+  const urgencyOrder: Record<UrgencyLabel, number> = {
+    gestionar_hoy: 0,
+    gestionar_semana: 1,
+    al_dia: 2,
+    sin_accion: 3,
+  };
+
+  return withUrgent
+    .map((c) => ({ ...c, urgency_label: computeUrgencyLabel(c, today) }))
+    .sort((a, b) => {
+      const diff = urgencyOrder[a.urgency_label] - urgencyOrder[b.urgency_label];
+      if (diff !== 0) return diff;
+      return (b.days_since_last_op ?? -1) - (a.days_since_last_op ?? -1);
+    }) as CompanyMetrics[];
 }
 
 export async function getCompanyDetail(
@@ -87,7 +130,7 @@ export async function getCompanyDetail(
     .maybeSingle();
 
   if (companyErr) throw new Error(companyErr.message);
-  if (!company) return null; // not found or not owned (RLS)
+  if (!company) return null;
 
   const [
     { data: contacts, error: cErr },
@@ -120,13 +163,16 @@ export async function getCompanyDetail(
       debtor_id: row.debtor_id,
       amount: Number(row.amount),
       issued_at: row.issued_at,
-      status: row.status,
+      status: row.status as InvoiceStatus,
       debtor_name: debtorName ?? "—",
     };
   });
 
+  const base = company as Omit<CompanyMetrics, "urgency_label">;
+  const urgency_label = computeUrgencyLabel(base, new Date());
+
   return {
-    company: company as CompanyMetrics,
+    company: { ...base, urgency_label } as CompanyMetrics,
     contacts: (contacts ?? []) as Contact[],
     invoices,
     monthly_volume: buildMonthlyVolume(invoices, 6),
@@ -148,5 +194,21 @@ export async function updateFollowup(
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  return data !== null; // false when RLS blocked the row (not owned)
+  return data !== null;
+}
+
+export async function updateManagementStatus(
+  supabase: SupabaseClient,
+  companyId: string,
+  status: ManagementStatus,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("companies")
+    .update({ management_status: status, management_updated_at: new Date().toISOString() })
+    .eq("id", companyId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data !== null;
 }

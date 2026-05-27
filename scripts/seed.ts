@@ -1,22 +1,23 @@
 /**
- * Seed script. Run with: pnpm seed
+ * Seed script — full SII/SAT lifecycle + qualitative fields.
+ * Run with: pnpm seed
  *
- * Generates a realistic KAM portfolio that tells stories (churn risk, low SOW,
- * healthy growth, enrolled-never-activated). Uses the service-role client, so it
- * bypasses RLS. Requires SUPABASE_SERVICE_ROLE_KEY and SEED_KAM_EMAIL.
- *
+ * Requires: SUPABASE_SERVICE_ROLE_KEY, SEED_KAM_EMAIL
  * Set SEED_RESET=true to wipe and reseed.
  */
 import { createAdminClient } from "../lib/supabase/admin";
 import type { Country, CompanyStatus, InvoiceStatus } from "../types";
 
 const db = createAdminClient();
-
 const DAY = 24 * 60 * 60 * 1000;
 const today = new Date();
 
 function daysAgo(n: number): string {
   return new Date(today.getTime() - n * DAY).toISOString().slice(0, 10);
+}
+
+function daysFromNow(n: number): string {
+  return new Date(today.getTime() + n * DAY).toISOString().slice(0, 10);
 }
 
 function rint(min: number, max: number): number {
@@ -27,172 +28,470 @@ function pick<T>(arr: T[]): T {
   return arr[rint(0, arr.length - 1)];
 }
 
-// --- tax id generators ----------------------------------------------------
 function makeRut(): string {
   return `${rint(60, 99)}.${rint(100, 999)}.${rint(100, 999)}-${rint(0, 9)}`;
 }
+
 function makeRfc(): string {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const l = () => letters[rint(0, 25)];
-  return `${l()}${l()}${l()}${rint(100000, 999999)}${l()}${rint(0, 9)}${l()}`;
+  const l = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const r = () => l[rint(0, 25)];
+  return `${r()}${r()}${r()}${rint(100000, 999999)}${r()}${rint(0, 9)}${r()}`;
 }
+
 function makeTaxId(country: Country): string {
   return country === "CL" ? makeRut() : makeRfc();
 }
 
-// --- cohorts --------------------------------------------------------------
-type Cohort = "churn_risk" | "low_sow" | "healthy" | "never_activated";
+// Named debtors for realistic stories
+const DEBTOR_NAMES = [
+  "Cencosud S.A.",
+  "Falabella Retail S.A.",
+  "Walmart Chile",
+  "Codelco",
+  "Empresas CMPC",
+  "Sodimac",
+  "Antofagasta Minerals",
+  "FEMSA Comercio",
+  "Walmart México",
+  "Cemex Operaciones",
+  "Grupo Bimbo",
+  "Arca Continental",
+];
 
-const CREDIT_RISK: Record<Cohort, [number, number]> = {
-  healthy:          [5,  25],
-  low_sow:          [25, 50],
-  churn_risk:       [55, 85],
-  never_activated:  [35, 65],
-};
+interface InvoiceSpec {
+  debtor: string; // must match a name in DEBTOR_NAMES
+  amount: number;
+  issued_at: string;
+  status: InvoiceStatus;
+}
 
 interface CompanySpec {
   name: string;
   country: Country;
   status: CompanyStatus;
-  cohort: Cohort;
+  credit_risk_score: number;
+  credit_limit: number;
+  enrolled_at: string;
+  next_followup_date: string | null;
+  sector: string;
+  interaction_summary: string | null;
+  news_context: string | null;
+  whatsapp_summary: string | null;
+  invoices: InvoiceSpec[];
+  notes: string[];
 }
 
-// 15 companies, mixed CL/MX, distributed across two KAMs (8 + 7).
-const KAM_A_COMPANIES: CompanySpec[] = [
-  { name: "Constructora Andes", country: "CL", status: "recurring", cohort: "healthy" },
-  { name: "Textiles del Maipo", country: "CL", status: "active", cohort: "low_sow" },
-  { name: "Frutícola Bío Bío", country: "CL", status: "recurring", cohort: "churn_risk" },
-  { name: "Logística Pacífico", country: "CL", status: "active", cohort: "healthy" },
-  { name: "Aceros Monterrey", country: "MX", status: "recurring", cohort: "low_sow" },
-  { name: "Alimentos del Golfo", country: "MX", status: "active", cohort: "churn_risk" },
-  { name: "Plásticos Querétaro", country: "MX", status: "enrolled", cohort: "never_activated" },
-  { name: "Viña Santa Elena", country: "CL", status: "enrolled", cohort: "never_activated" },
+const DEMO_COMPANIES: CompanySpec[] = [
+  // ── CL: Churn Risk ────────────────────────────────────────────────────────
+  {
+    name: "Constructora Andes Ltda.",
+    country: "CL",
+    status: "active",
+    credit_risk_score: 62,
+    credit_limit: 120_000_000,
+    enrolled_at: daysAgo(280),
+    next_followup_date: daysAgo(2), // overdue → 🔴
+    sector: "Construcción",
+    interaction_summary:
+      "Reunión presencial el 8 de mayo. Cliente espera acuse de Falabella para ceder. Mencionó que Cencosud está demorando pagos en general.",
+    news_context:
+      "Falabella reportó caída de 12% en compras a proveedores de construcción en Q1 2026. Puede afectar el timing del acuse de recibo.",
+    whatsapp_summary:
+      "Último mensaje hace 18 días. Cliente prometió gestionar el acuse con Falabella pero no hay respuesta. 2 mensajes sin leer.",
+    invoices: [
+      { debtor: "Falabella Retail S.A.", amount: 34_000_000, issued_at: daysAgo(25), status: "acuse_recibo" },
+      { debtor: "Cencosud S.A.",         amount: 28_000_000, issued_at: daysAgo(22), status: "entregada_receptor" },
+      { debtor: "Sodimac",               amount: 19_000_000, issued_at: daysAgo(21), status: "entregada_receptor" },
+      { debtor: "Walmart Chile",         amount: 22_000_000, issued_at: daysAgo(31), status: "entregada_receptor" },
+      { debtor: "Cencosud S.A.",         amount: 41_000_000, issued_at: daysAgo(60), status: "cedida_competencia" },
+      { debtor: "Falabella Retail S.A.", amount: 30_000_000, issued_at: daysAgo(90), status: "cedida_competencia" },
+      { debtor: "Codelco",               amount: 55_000_000, issued_at: daysAgo(150), status: "cobrada" },
+    ],
+    notes: [
+      "Falabella sigue sin dar acuse de recibo en 3 facturas. Riesgo de que superen los 8 días y pierdan mérito ejecutivo.",
+      "Cliente tiene volumen interesante pero la competencia se llevó 2 facturas grandes en enero.",
+    ],
+  },
+
+  {
+    name: "Textil Sudamericana Ltda.",
+    country: "CL",
+    status: "active",
+    credit_risk_score: 71,
+    credit_limit: 80_000_000,
+    enrolled_at: daysAgo(340),
+    next_followup_date: daysAgo(1), // overdue → 🔴
+    sector: "Textil y confección",
+    interaction_summary:
+      "KAM llamó el 8 de mayo. Cliente mencionó que Cencosud reclamó la factura por error en la descripción del servicio. Está tramitando nota de crédito.",
+    news_context:
+      "Sector textil CL con baja demanda en Q1 2026. Cencosud redujo inventarios. Riesgo de que el cliente no retome volumen pronto.",
+    whatsapp_summary:
+      "Sin respuesta desde el 10 de mayo. 3 mensajes sin leer. Última operación fue hace 45 días.",
+    invoices: [
+      { debtor: "Cencosud S.A.",         amount: 38_000_000, issued_at: daysAgo(45), status: "reclamada" },
+      { debtor: "Falabella Retail S.A.", amount: 22_000_000, issued_at: daysAgo(120), status: "cobrada" },
+      { debtor: "Walmart Chile",         amount: 18_000_000, issued_at: daysAgo(180), status: "cobrada" },
+      { debtor: "Sodimac",               amount: 15_000_000, issued_at: daysAgo(240), status: "cobrada" },
+    ],
+    notes: [
+      "Factura reclamada por Cencosud — error en descripción. Cliente tramitando NC. Urgente resolver antes del cierre de mes.",
+      "45 días sin nuevas operaciones. Alta probabilidad de fuga si no actuamos esta semana.",
+    ],
+  },
+
+  {
+    name: "Grupo Industrial Magallanes S.A.",
+    country: "CL",
+    status: "recurring",
+    credit_risk_score: 78,
+    credit_limit: 200_000_000,
+    enrolled_at: daysAgo(500),
+    next_followup_date: null,
+    sector: "Industria pesada",
+    interaction_summary:
+      "Último contacto fue hace 60 días. Cliente dejó de responder después de que se inició proceso judicial por factura de Codelco.",
+    news_context:
+      "Codelco anunció revisión de contratos con proveedores en la región de Magallanes. Puede afectar la liquidez del cliente.",
+    whatsapp_summary:
+      "Sin respuesta desde hace 2 meses. Número de contacto activo pero no responde.",
+    invoices: [
+      { debtor: "Codelco",               amount: 95_000_000, issued_at: daysAgo(75), status: "protestada" },
+      { debtor: "Antofagasta Minerals",  amount: 60_000_000, issued_at: daysAgo(200), status: "cobrada" },
+      { debtor: "Codelco",               amount: 45_000_000, issued_at: daysAgo(300), status: "cobrada" },
+    ],
+    notes: [
+      "Factura de Codelco en proceso judicial. Esperar resolución legal antes de nuevas operaciones.",
+      "Cliente era recurrente pero 60 días sin actividad. Riesgo de perder la relación permanentemente.",
+    ],
+  },
+
+  // ── CL: Healthy ───────────────────────────────────────────────────────────
+  {
+    name: "Sociedad Agrícola del Norte S.A.",
+    country: "CL",
+    status: "recurring",
+    credit_risk_score: 18,
+    credit_limit: 150_000_000,
+    enrolled_at: daysAgo(600),
+    next_followup_date: daysFromNow(3), // upcoming this week → 🟡
+    sector: "Agroindustria",
+    interaction_summary:
+      "Reunión mensual de revisión de portafolio el 20 de mayo. Cliente satisfecho con tasas. Evaluar aumento de línea.",
+    news_context:
+      "Buena temporada de exportaciones de fruta CL. El cliente tiene contratos nuevos con Walmart Chile para Q3.",
+    whatsapp_summary:
+      "Contacto fluido. Última confirmación de operación vía WhatsApp hace 5 días.",
+    invoices: [
+      { debtor: "Walmart Chile",         amount: 42_000_000, issued_at: daysAgo(10), status: "cedida_xepelin" },
+      { debtor: "Cencosud S.A.",         amount: 38_000_000, issued_at: daysAgo(20), status: "cedida_xepelin" },
+      { debtor: "Sodimac",               amount: 31_000_000, issued_at: daysAgo(35), status: "cedida_xepelin" },
+      { debtor: "Falabella Retail S.A.", amount: 29_000_000, issued_at: daysAgo(55), status: "en_cobranza" },
+      { debtor: "Walmart Chile",         amount: 44_000_000, issued_at: daysAgo(90), status: "cobrada" },
+      { debtor: "Cencosud S.A.",         amount: 36_000_000, issued_at: daysAgo(130), status: "cobrada" },
+    ],
+    notes: [
+      "Excelente cliente. Evaluar propuesta de aumento de línea para la temporada de exportaciones.",
+      "SOW de Xepelin al 100%. Ningún volumen a competencia en el último año.",
+    ],
+  },
+
+  {
+    name: "Minera Atacama SpA",
+    country: "CL",
+    status: "recurring",
+    credit_risk_score: 12,
+    credit_limit: 300_000_000,
+    enrolled_at: daysAgo(800),
+    next_followup_date: daysFromNow(15),
+    sector: "Minería",
+    interaction_summary:
+      "Cliente ancla. Revisión trimestral con gerente de finanzas el 15 de mayo. Expansión de línea aprobada.",
+    news_context:
+      "Precio del cobre en máximo de 5 años. Minera Atacama con contratos de largo plazo con Codelco. Estabilidad financiera alta.",
+    whatsapp_summary:
+      "Comunicación semanal con el CFO vía WhatsApp. Última confirmación de operación hace 3 días.",
+    invoices: [
+      { debtor: "Codelco",               amount: 120_000_000, issued_at: daysAgo(8),  status: "cedida_xepelin" },
+      { debtor: "Antofagasta Minerals",  amount: 85_000_000,  issued_at: daysAgo(15), status: "cedida_xepelin" },
+      { debtor: "Codelco",               amount: 95_000_000,  issued_at: daysAgo(30), status: "en_cobranza" },
+      { debtor: "Codelco",               amount: 110_000_000, issued_at: daysAgo(70), status: "cobrada" },
+      { debtor: "Antofagasta Minerals",  amount: 78_000_000,  issued_at: daysAgo(100), status: "cobrada" },
+    ],
+    notes: [
+      "Cliente estratégico. No tocar tasa. Prioridad en resolución de cualquier incidencia.",
+      "Línea de CLP 300M aprobada. Siguiente visita presencial en agosto.",
+    ],
+  },
+
+  // ── CL: Low SOW ───────────────────────────────────────────────────────────
+  {
+    name: "Importadora Tecnológica S.A.",
+    country: "CL",
+    status: "active",
+    credit_risk_score: 34,
+    credit_limit: 90_000_000,
+    enrolled_at: daysAgo(220),
+    next_followup_date: daysFromNow(5), // within 7 days → 🟡
+    sector: "Tecnología e importación",
+    interaction_summary:
+      "El cliente cedió el 80% de su volumen a BancoEstado Factoring por mejor tasa. Reunión para revisar propuesta competitiva agendada para la próxima semana.",
+    news_context:
+      "BancoEstado bajó tasas de factoring un 0.3% en abril. Competencia agresiva en el segmento tech.",
+    whatsapp_summary:
+      "Contacto activo. Cliente preguntó por tasa el viernes. Esperando propuesta revisada.",
+    invoices: [
+      { debtor: "Falabella Retail S.A.", amount: 25_000_000, issued_at: daysAgo(12), status: "cedida_xepelin" },
+      { debtor: "Cencosud S.A.",         amount: 48_000_000, issued_at: daysAgo(8),  status: "cedida_competencia" },
+      { debtor: "Walmart Chile",         amount: 52_000_000, issued_at: daysAgo(20), status: "cedida_competencia" },
+      { debtor: "Sodimac",               amount: 38_000_000, issued_at: daysAgo(35), status: "cedida_competencia" },
+      { debtor: "Falabella Retail S.A.", amount: 41_000_000, issued_at: daysAgo(50), status: "cedida_competencia" },
+      { debtor: "Cencosud S.A.",         amount: 29_000_000, issued_at: daysAgo(65), status: "cedida_competencia" },
+    ],
+    notes: [
+      "SOW de Xepelin solo 17%. Recuperar este cliente es prioridad antes de fin de Q2.",
+      "Preparar propuesta de tasa diferenciada para facturas de Falabella y Cencosud.",
+    ],
+  },
+
+  {
+    name: "Alimentos del Sur Ltda.",
+    country: "CL",
+    status: "active",
+    credit_risk_score: 28,
+    credit_limit: 75_000_000,
+    enrolled_at: daysAgo(160),
+    next_followup_date: daysFromNow(4),
+    sector: "Alimentos y bebidas",
+    interaction_summary:
+      "Walmart Chile tiene facturas listas para ceder pero el cliente prefirió la competencia la última vez. Hay una de Falabella en acuse de recibo lista para ceder a Xepelin.",
+    news_context:
+      "Falabella mejoró condiciones de pago a proveedores de alimentos en Q2 2026. Puede facilitar más cesiones.",
+    whatsapp_summary:
+      "Buena relación personal. Cliente abierto a conversación sobre la factura de Falabella.",
+    invoices: [
+      { debtor: "Falabella Retail S.A.", amount: 33_000_000, issued_at: daysAgo(9),  status: "acuse_recibo" },
+      { debtor: "Walmart Chile",         amount: 44_000_000, issued_at: daysAgo(15), status: "cedida_competencia" },
+      { debtor: "Walmart Chile",         amount: 38_000_000, issued_at: daysAgo(30), status: "cedida_competencia" },
+      { debtor: "Sodimac",               amount: 21_000_000, issued_at: daysAgo(90), status: "cobrada" },
+    ],
+    notes: [
+      "Factura de Falabella en acuse de recibo — excelente oportunidad para ceder a Xepelin esta semana.",
+      "Walmart cedido a la competencia dos veces seguidas. Necesitamos propuesta de valor más clara.",
+    ],
+  },
+
+  // ── CL: Distribuidora (healthy with upcoming followup) ────────────────────
+  {
+    name: "Distribuidora El Pacífico S.A.",
+    country: "CL",
+    status: "recurring",
+    credit_risk_score: 22,
+    credit_limit: 100_000_000,
+    enrolled_at: daysAgo(450),
+    next_followup_date: daysFromNow(6),
+    sector: "Distribución y logística",
+    interaction_summary:
+      "Cliente con buen ritmo operacional. Hay facturas en mérito ejecutivo listas para proponer a cliente como portafolio limpio.",
+    news_context:
+      "Crecimiento del retail online impulsa la demanda logística en CL. El cliente tiene nuevos contratos.",
+    whatsapp_summary:
+      "Cliente responde rápido. Confirmó disponibilidad para reunión la próxima semana.",
+    invoices: [
+      { debtor: "Sodimac",               amount: 28_000_000, issued_at: daysAgo(12), status: "merito_ejecutivo" },
+      { debtor: "Falabella Retail S.A.", amount: 36_000_000, issued_at: daysAgo(18), status: "merito_ejecutivo" },
+      { debtor: "Cencosud S.A.",         amount: 42_000_000, issued_at: daysAgo(25), status: "cedida_xepelin" },
+      { debtor: "Walmart Chile",         amount: 31_000_000, issued_at: daysAgo(50), status: "cedida_xepelin" },
+      { debtor: "Sodimac",               amount: 39_000_000, issued_at: daysAgo(80), status: "cobrada" },
+    ],
+    notes: [
+      "Facturas de Sodimac y Falabella con mérito ejecutivo — proponer cesión inmediata.",
+      "Buen cliente. Explorar producto Pyme Pro en la próxima reunión.",
+    ],
+  },
+
+  // ── CL: Never Activated ───────────────────────────────────────────────────
+  {
+    name: "Logística Nacional SpA",
+    country: "CL",
+    status: "enrolled",
+    credit_risk_score: 45,
+    credit_limit: 50_000_000,
+    enrolled_at: daysAgo(90),
+    next_followup_date: null,
+    sector: "Logística y transporte",
+    interaction_summary: null,
+    news_context: null,
+    whatsapp_summary: "Onboarding completado pero sin primera operación. Número validado.",
+    invoices: [
+      { debtor: "Walmart Chile",         amount: 18_000_000, issued_at: daysAgo(15), status: "emitida" },
+      { debtor: "Cencosud S.A.",         amount: 24_000_000, issued_at: daysAgo(20), status: "emitida" },
+      { debtor: "Falabella Retail S.A.", amount: 12_000_000, issued_at: daysAgo(30), status: "emitida" },
+    ],
+    notes: [
+      "Enrolado hace 90 días. Facturas emitidas pero nunca cedidas. Coordinar primer onboarding operativo.",
+    ],
+  },
+
+  {
+    name: "Empresa de Servicios Técnicos S.A.",
+    country: "CL",
+    status: "enrolled",
+    credit_risk_score: 52,
+    credit_limit: 40_000_000,
+    enrolled_at: daysAgo(45),
+    next_followup_date: null,
+    sector: "Servicios técnicos y mantención",
+    interaction_summary: null,
+    news_context: null,
+    whatsapp_summary: null,
+    invoices: [],
+    notes: [
+      "Empresa enrolada recientemente. Sin facturas aún. Necesita guía para emitir DTE correctamente.",
+    ],
+  },
+
+  // ── MX: Healthy ───────────────────────────────────────────────────────────
+  {
+    name: "Walmart México Proveedores S.A. de C.V.",
+    country: "MX",
+    status: "recurring",
+    credit_risk_score: 15,
+    credit_limit: 5_000_000,  // MXN scale
+    enrolled_at: daysAgo(700),
+    next_followup_date: daysFromNow(20),
+    sector: "Proveeduría retail",
+    interaction_summary:
+      "Portafolio estable. Último ciclo de cesión completado sin incidencias. El cliente opera principalmente con CFDI de Walmart.",
+    news_context:
+      "Walmart México con expansión de tiendas en el centro del país. Más volumen esperado en Q3.",
+    whatsapp_summary:
+      "Comunicación fluida con el equipo de tesorería. Operan en ciclos mensuales predecibles.",
+    invoices: [
+      { debtor: "Walmart México",        amount: 850_000,  issued_at: daysAgo(10), status: "cedida_mx" },
+      { debtor: "FEMSA Comercio",        amount: 620_000,  issued_at: daysAgo(15), status: "cedida_mx" },
+      { debtor: "Walmart México",        amount: 790_000,  issued_at: daysAgo(45), status: "cedida_mx" },
+      { debtor: "Walmart México",        amount: 910_000,  issued_at: daysAgo(75), status: "cobrada" },
+      { debtor: "FEMSA Comercio",        amount: 540_000,  issued_at: daysAgo(100), status: "cobrada" },
+    ],
+    notes: [
+      "Cliente ancla en MX. Alta estabilidad operacional.",
+      "Explorar producto de línea rotativa para el ciclo de Q3.",
+    ],
+  },
+
+  {
+    name: "Alimentos Tropicales S.A. de C.V.",
+    country: "MX",
+    status: "recurring",
+    credit_risk_score: 20,
+    credit_limit: 3_000_000,
+    enrolled_at: daysAgo(500),
+    next_followup_date: daysFromNow(10),
+    sector: "Alimentos y bebidas MX",
+    interaction_summary:
+      "Ciclos mensuales con OXXO y Walmart MX. Muy estable. Cliente pide nueva línea para temporada alta.",
+    news_context:
+      "Grupo Bimbo y FEMSA con aumentos de compras a proveedores en Q2. Buen momento para proponer aumento de línea.",
+    whatsapp_summary:
+      "Responde en menos de 2 horas. Muy colaborativo con documentación.",
+    invoices: [
+      { debtor: "Grupo Bimbo",           amount: 480_000,  issued_at: daysAgo(7),  status: "cedida_mx" },
+      { debtor: "FEMSA Comercio",        amount: 530_000,  issued_at: daysAgo(18), status: "cedida_mx" },
+      { debtor: "Walmart México",        amount: 410_000,  issued_at: daysAgo(38), status: "en_cobranza" },
+      { debtor: "Grupo Bimbo",           amount: 490_000,  issued_at: daysAgo(65), status: "cobrada" },
+      { debtor: "FEMSA Comercio",        amount: 375_000,  issued_at: daysAgo(90), status: "cobrada" },
+    ],
+    notes: [
+      "Proponer aumento de línea a MXN 4.5M para temporada alta Q3.",
+    ],
+  },
+
+  // ── MX: Low SOW ───────────────────────────────────────────────────────────
+  {
+    name: "Comercializadora Azteca S.A. de C.V.",
+    country: "MX",
+    status: "active",
+    credit_risk_score: 38,
+    credit_limit: 2_500_000,
+    enrolled_at: daysAgo(180),
+    next_followup_date: daysFromNow(4),
+    sector: "Comercio y distribución MX",
+    interaction_summary:
+      "El cliente cedió la mayoría del volumen de FEMSA a otra institución financiera. Solo 1 CFDI cedido a Xepelin MX.",
+    news_context:
+      "FEMSA lanzó programa de pago a proveedores con descuentos por pronto pago. Puede reducir la necesidad de factoring.",
+    whatsapp_summary:
+      "Contacto activo. Cliente interesado en comparar tasas de nuevo.",
+    invoices: [
+      { debtor: "Arca Continental",      amount: 320_000,  issued_at: daysAgo(14), status: "cedida_mx" },
+      { debtor: "FEMSA Comercio",        amount: 680_000,  issued_at: daysAgo(10), status: "cedida_competencia" },
+      { debtor: "FEMSA Comercio",        amount: 520_000,  issued_at: daysAgo(25), status: "cedida_competencia" },
+      { debtor: "Walmart México",        amount: 440_000,  issued_at: daysAgo(50), status: "cedida_competencia" },
+    ],
+    notes: [
+      "SOW de Xepelin MX solo 19%. FEMSA va todo a la competencia.",
+      "Preparar propuesta comparativa antes de la reunión del viernes.",
+    ],
+  },
+
+  // ── MX: Churn Risk ────────────────────────────────────────────────────────
+  {
+    name: "Grupo Cemento del Norte S.A. de C.V.",
+    country: "MX",
+    status: "active",
+    credit_risk_score: 65,
+    credit_limit: 4_000_000,
+    enrolled_at: daysAgo(350),
+    next_followup_date: daysAgo(5), // overdue → 🔴
+    sector: "Construcción y materiales MX",
+    interaction_summary:
+      "Sin operaciones en 35 días. El cliente tiene CFDIs vigentes pero no ha contactado a Xepelin para ceder.",
+    news_context:
+      "Sector construcción MX con contracción de demanda en zona norte. Cemex redujo pedidos a proveedores.",
+    whatsapp_summary:
+      "Último mensaje hace 3 semanas. Cliente leyó pero no respondió.",
+    invoices: [
+      { debtor: "Cemex Operaciones",     amount: 740_000,  issued_at: daysAgo(36), status: "vigente" },
+      { debtor: "Cemex Operaciones",     amount: 680_000,  issued_at: daysAgo(38), status: "vigente" },
+      { debtor: "Arca Continental",      amount: 290_000,  issued_at: daysAgo(40), status: "vigente" },
+      { debtor: "Cemex Operaciones",     amount: 920_000,  issued_at: daysAgo(180), status: "cobrada" },
+    ],
+    notes: [
+      "3 CFDIs vigentes sin ceder. 35 días sin actividad. Llamar urgente.",
+      "Sector construcción en contracción. Analizar riesgo crediticio antes de ampliar línea.",
+    ],
+  },
+
+  {
+    name: "Transportes Pacífico MX S.A. de C.V.",
+    country: "MX",
+    status: "active",
+    credit_risk_score: 73,
+    credit_limit: 1_800_000,
+    enrolled_at: daysAgo(250),
+    next_followup_date: daysAgo(3), // overdue → 🔴
+    sector: "Transporte y logística MX",
+    interaction_summary:
+      "Walmart MX canceló 2 CFDIs por disputa de servicio. Cliente en proceso de renegociación de contrato con deudor.",
+    news_context:
+      "Walmart México implementó nuevos estándares de documentación para proveedores de transporte. Puede causar más cancelaciones.",
+    whatsapp_summary:
+      "Cliente frustrado. Último mensaje fue queja por la cancelación. Requiere llamada de seguimiento urgente.",
+    invoices: [
+      { debtor: "Walmart México",        amount: 420_000,  issued_at: daysAgo(25), status: "cancelada" },
+      { debtor: "Walmart México",        amount: 380_000,  issued_at: daysAgo(28), status: "cancelada" },
+      { debtor: "FEMSA Comercio",        amount: 290_000,  issued_at: daysAgo(90), status: "cobrada" },
+      { debtor: "Walmart México",        amount: 350_000,  issued_at: daysAgo(140), status: "cobrada" },
+    ],
+    notes: [
+      "2 CFDIs cancelados por Walmart MX. El cliente no puede operar hasta resolver la disputa.",
+      "Evaluar pausa en la línea hasta que el cliente normalice la relación con su deudor.",
+    ],
+  },
 ];
-
-const KAM_B_COMPANIES: CompanySpec[] = [
-  { name: "Maderas Patagonia", country: "CL", status: "recurring", cohort: "healthy" },
-  { name: "Servicios Mineros Norte", country: "CL", status: "active", cohort: "churn_risk" },
-  { name: "Comercial Valparaíso", country: "CL", status: "active", cohort: "low_sow" },
-  { name: "Electrónica Guadalajara", country: "MX", status: "recurring", cohort: "healthy" },
-  { name: "Transportes Yucatán", country: "MX", status: "active", cohort: "low_sow" },
-  { name: "Café Veracruz", country: "MX", status: "enrolled", cohort: "never_activated" },
-  { name: "Agroindustria Curicó", country: "CL", status: "recurring", cohort: "churn_risk" },
-];
-
-const DEBTOR_NAMES = [
-  "Cencosud S.A.",
-  "Falabella Retail",
-  "Walmart México",
-  "Cemex Operaciones",
-  "Codelco",
-  "Grupo Bimbo",
-  "Empresas CMPC",
-  "FEMSA Comercio",
-  "Sodimac",
-  "Liverpool",
-  "Antofagasta Minerals",
-  "Arca Continental",
-];
-
-// Build the invoice set for a company based on its story cohort.
-function buildInvoices(cohort: Cohort): Array<{
-  amount: number;
-  issued_at: string;
-  status: InvoiceStatus;
-}> {
-  const out: Array<{ amount: number; issued_at: string; status: InvoiceStatus }> = [];
-  const amt = () => rint(8, 60) * 1_000_000; // CLP-scale amounts
-
-  switch (cohort) {
-    case "healthy": {
-      // Recent, frequent Cepelin volume across the last ~5 months. High SOW.
-      for (let i = 0; i < rint(6, 8); i++) {
-        const day = rint(2, 150);
-        out.push({
-          amount: amt(),
-          issued_at: daysAgo(day),
-          status: pick<InvoiceStatus>([
-            "assigned_cepelin",
-            "assigned_cepelin",
-            "in_collection",
-            "collected",
-          ]),
-        });
-      }
-      break;
-    }
-    case "low_sow": {
-      // Real volume exists but mostly goes to the competitor.
-      // Guarantee ≥1 recent Cepelin invoice so volume_60d > 0.
-      out.push({ amount: amt(), issued_at: daysAgo(rint(2, 45)), status: "assigned_cepelin" });
-      for (let i = 0; i < rint(4, 7); i++) {
-        out.push({
-          amount: amt(),
-          issued_at: daysAgo(rint(2, 120)),
-          status: pick<InvoiceStatus>([
-            "assigned_competitor",
-            "assigned_competitor",
-            "assigned_competitor",
-          ]),
-        });
-      }
-      break;
-    }
-    case "churn_risk": {
-      // Was active, but nothing assigned to Cepelin in 30+ days.
-      for (let i = 0; i < rint(3, 5); i++) {
-        out.push({
-          amount: amt(),
-          issued_at: daysAgo(rint(35, 160)),
-          status: pick<InvoiceStatus>(["assigned_cepelin", "in_collection", "collected"]),
-        });
-      }
-      // A couple of recent invoices that did NOT come to Cepelin.
-      for (let i = 0; i < rint(1, 2); i++) {
-        out.push({
-          amount: amt(),
-          issued_at: daysAgo(rint(2, 20)),
-          status: pick<InvoiceStatus>(["assigned_competitor", "issued"]),
-        });
-      }
-      break;
-    }
-    case "never_activated": {
-      // Enrolled but never operated with Cepelin. Maybe a couple of issued docs.
-      for (let i = 0; i < rint(0, 2); i++) {
-        out.push({ amount: amt(), issued_at: daysAgo(rint(5, 40)), status: "issued" });
-      }
-      break;
-    }
-  }
-  return out;
-}
-
-function buildNotes(cohort: Cohort): string[] {
-  const base: Record<Cohort, string[]> = {
-    healthy: [
-      "Cliente muy activo, evaluar aumento de línea con Riesgo.",
-      "Interesado en adelantar facturas de su principal pagador.",
-    ],
-    low_sow: [
-      "Gran parte del volumen se va a la competencia. Trabajar propuesta de tasa.",
-      "Reunión agendada para revisar condiciones vs. competidor.",
-    ],
-    churn_risk: [
-      "Sin operaciones recientes con Cepelin. Llamar esta semana.",
-      "Cliente mencionó problemas de flujo. Riesgo de fuga.",
-    ],
-    never_activated: [
-      "Enrolado pero aún sin primera operación. Coordinar onboarding.",
-    ],
-  };
-  const pool = base[cohort];
-  const count = rint(1, Math.min(3, pool.length + 1));
-  return pool.slice(0, count);
-}
 
 async function reset() {
-  // FK-safe order.
   for (const table of ["notes", "invoices", "contacts", "companies", "debtors", "kams"]) {
     const { error } = await db.from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
     if (error) throw new Error(`reset ${table}: ${error.message}`);
@@ -214,101 +513,101 @@ async function main() {
     }
   }
 
-  // KAMs — the first uses the configurable evaluator email and owns the demo set.
+  // KAMs
   const { data: kams, error: kamErr } = await db
     .from("kams")
     .insert([
-      { name: "Evaluador Cepelin", email: seedEmail },
-      { name: "María González", email: "maria.gonzalez@cepelin.test" },
+      { name: "Evaluador Demo", email: seedEmail },
+      { name: "María González", email: "maria.gonzalez@xepelin.test" },
     ])
     .select();
   if (kamErr || !kams) throw new Error(`kams: ${kamErr?.message}`);
-  const [kamA, kamB] = kams;
+  const [kamA] = kams;
 
-  // Debtors (shared reference pool).
+  // Debtors (shared reference pool)
   const { data: debtors, error: debErr } = await db
     .from("debtors")
     .insert(DEBTOR_NAMES.map((name) => ({ name, tax_id: makeRut() })))
     .select();
   if (debErr || !debtors) throw new Error(`debtors: ${debErr?.message}`);
 
-  const groups: Array<{ kamId: string; isDemo: boolean; specs: CompanySpec[] }> = [
-    { kamId: kamA.id, isDemo: true, specs: KAM_A_COMPANIES },
-    { kamId: kamB.id, isDemo: false, specs: KAM_B_COMPANIES },
-  ];
+  const debtorByName = new Map(debtors.map((d) => [d.name, d.id]));
 
   let companyCount = 0;
-  for (const group of groups) {
-    for (const spec of group.specs) {
-      const invoiceSpecs = buildInvoices(spec.cohort);
 
-      // credit_limit = avg monthly Cepelin-processed volume * 1.5 (>= a floor).
-      const xepVolume = invoiceSpecs
-        .filter((i) => ["assigned_cepelin", "in_collection", "collected"].includes(i.status))
-        .reduce((s, i) => s + i.amount, 0);
-      const avgMonthly = xepVolume / 6;
-      const creditLimit = Math.max(Math.round(avgMonthly * 1.5), 20_000_000);
+  for (const spec of DEMO_COMPANIES) {
+    const xepVolume = spec.invoices
+      .filter((i) =>
+        ["cedida_xepelin", "en_cobranza", "cobrada", "cedida_mx"].includes(i.status),
+      )
+      .reduce((s, i) => s + i.amount, 0);
 
-      const { data: company, error: cErr } = await db
-        .from("companies")
-        .insert({
-          kam_id: group.kamId,
-          name: spec.name,
-          tax_id: makeTaxId(spec.country),
-          country: spec.country,
-          status: spec.status,
-          enrolled_at: daysAgo(rint(40, 400)),
-          credit_limit: creditLimit,
-          next_followup_date: spec.cohort === "churn_risk" ? daysAgo(-rint(1, 7)) : null,
-          is_demo: group.isDemo,
-          credit_risk_score: rint(...CREDIT_RISK[spec.cohort]),
-        })
-        .select()
-        .single();
-      if (cErr || !company) throw new Error(`company ${spec.name}: ${cErr?.message}`);
-      companyCount++;
+    const { data: company, error: cErr } = await db
+      .from("companies")
+      .insert({
+        kam_id: kamA.id,
+        name: spec.name,
+        tax_id: makeTaxId(spec.country),
+        country: spec.country,
+        status: spec.status,
+        enrolled_at: spec.enrolled_at,
+        credit_limit: spec.credit_limit,
+        next_followup_date: spec.next_followup_date,
+        is_demo: true,
+        credit_risk_score: spec.credit_risk_score,
+        sector: spec.sector,
+        interaction_summary: spec.interaction_summary,
+        news_context: spec.news_context,
+        whatsapp_summary: spec.whatsapp_summary,
+        management_status: "por_gestionar",
+      })
+      .select()
+      .single();
+    if (cErr || !company) throw new Error(`company ${spec.name}: ${cErr?.message}`);
+    companyCount++;
 
-      // Contacts (1-2).
-      const contacts = Array.from({ length: rint(1, 2) }, (_, i) => ({
-        company_id: company.id,
-        name: `Contacto ${i + 1} ${spec.name.split(" ")[0]}`,
-        phone: `+56 9 ${rint(1000, 9999)} ${rint(1000, 9999)}`,
-        email: `contacto${i + 1}@${spec.name.split(" ")[0].toLowerCase()}.cl`,
-      }));
-      const { error: ctErr } = await db.from("contacts").insert(contacts);
-      if (ctErr) throw new Error(`contacts ${spec.name}: ${ctErr.message}`);
+    // Contact
+    await db.from("contacts").insert({
+      company_id: company.id,
+      name: `Gerente Finanzas ${spec.name.split(" ")[0]}`,
+      phone: spec.country === "CL"
+        ? `+56 9 ${rint(1000, 9999)} ${rint(1000, 9999)}`
+        : `+52 55 ${rint(1000, 9999)} ${rint(1000, 9999)}`,
+      email: `finanzas@${spec.name.split(" ")[0].toLowerCase().replace(/[^a-z]/g, "")}.${spec.country === "CL" ? "cl" : "mx"}`,
+    });
 
-      // Invoices.
-      if (invoiceSpecs.length > 0) {
-        const { error: invErr } = await db.from("invoices").insert(
-          invoiceSpecs.map((i) => ({
-            company_id: company.id,
-            debtor_id: pick(debtors).id,
-            amount: i.amount,
-            issued_at: i.issued_at,
-            status: i.status,
-          })),
-        );
-        if (invErr) throw new Error(`invoices ${spec.name}: ${invErr.message}`);
-      }
-
-      // Notes.
-      const { error: nErr } = await db.from("notes").insert(
-        buildNotes(spec.cohort).map((content, idx) => ({
+    // Invoices
+    if (spec.invoices.length > 0) {
+      const { error: invErr } = await db.from("invoices").insert(
+        spec.invoices.map((inv) => ({
           company_id: company.id,
-          kam_id: group.kamId,
+          debtor_id: debtorByName.get(inv.debtor) ?? pick(debtors).id,
+          amount: inv.amount,
+          issued_at: inv.issued_at,
+          status: inv.status,
+        })),
+      );
+      if (invErr) throw new Error(`invoices ${spec.name}: ${invErr.message}`);
+    }
+
+    // Notes
+    if (spec.notes.length > 0) {
+      const { error: nErr } = await db.from("notes").insert(
+        spec.notes.map((content, idx) => ({
+          company_id: company.id,
+          kam_id: kamA.id,
           content,
           created_at: new Date(today.getTime() - (idx + 1) * 3 * DAY).toISOString(),
         })),
       );
       if (nErr) throw new Error(`notes ${spec.name}: ${nErr.message}`);
     }
+
+    console.log(`  ✓ ${spec.name} (${spec.country})`);
   }
 
-  console.log(
-    `Seeded ${kams.length} KAMs, ${debtors.length} debtors, ${companyCount} companies.`,
-  );
-  console.log(`Evaluator KAM email: ${seedEmail} (owns the demo portfolio).`);
+  console.log(`\nSeeded ${kams.length} KAMs, ${debtors.length} debtors, ${companyCount} companies.`);
+  console.log(`Evaluator KAM email: ${seedEmail}`);
 }
 
 main().catch((err) => {

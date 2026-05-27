@@ -1,22 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LayoutGrid, List, Loader2, RefreshCw } from "lucide-react";
+import { Columns3, LayoutGrid, List, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyTable } from "@/components/companies/CompanyTable";
 import { KanbanView } from "@/components/companies/KanbanView";
+import { ManagementKanbanView } from "@/components/companies/ManagementKanbanView";
 import type { SortKey, SortDir } from "@/components/companies/CompanyTable";
 import { apiGet, apiPost } from "@/lib/api";
 import type { CompanyMetrics } from "@/types";
 
-type ViewMode = "table" | "kanban";
+type ViewMode = "table" | "kanban" | "management";
 
 function useViewMode(): [ViewMode, (v: ViewMode) => void] {
   const [view, setView] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "table";
-    return (localStorage.getItem("dashboard-view") as ViewMode) ?? "table";
+    const stored = localStorage.getItem("dashboard-view") as ViewMode;
+    return stored === "table" || stored === "kanban" || stored === "management"
+      ? stored
+      : "table";
   });
   function set(v: ViewMode) {
     setView(v);
@@ -35,9 +39,7 @@ export default function DashboardPage() {
 
   const fetchCompanies = useCallback(() => {
     apiGet<CompanyMetrics[]>("/api/companies")
-      .then((data) => {
-        setCompanies(data);
-      })
+      .then((data) => setCompanies(data))
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Error"));
   }, []);
 
@@ -80,12 +82,12 @@ export default function DashboardPage() {
     }
   }
 
+  // Server-side urgency sort is already applied; client sort adds secondary key
   const sortedCompanies = (() => {
     if (!companies || !sortKey) return companies;
     return [...companies].sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
-      // Nulls always last
       if (av === null && bv === null) return 0;
       if (av === null) return 1;
       if (bv === null) return -1;
@@ -94,16 +96,17 @@ export default function DashboardPage() {
     });
   })();
 
-  const atRisk = companies?.filter((c) => (c.days_since_last_op ?? 0) > 30).length ?? 0;
+  const urgentCount = companies?.filter(
+    (c) => c.urgency_label === "gestionar_hoy",
+  ).length ?? 0;
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Mi cartera</h1>
           <p className="text-sm text-muted-foreground">
-            Ordenada por urgencia · cuentas sin operaciones recientes primero
+            Ordenada por urgencia · 🔴 primero
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -114,15 +117,16 @@ export default function DashboardPage() {
                 <span className="tabular-nums font-semibold">{companies.length}</span>
                 <span className="text-muted-foreground">empresas</span>
               </div>
-              {atRisk > 0 && (
+              {urgentCount > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-destructive" />
-                  <span className="tabular-nums font-semibold text-destructive">{atRisk}</span>
-                  <span className="text-muted-foreground">en riesgo</span>
+                  <span className="text-base">🔴</span>
+                  <span className="tabular-nums font-semibold text-destructive">{urgentCount}</span>
+                  <span className="text-muted-foreground">urgentes hoy</span>
                 </div>
               )}
             </div>
           )}
+
           {/* View toggle */}
           <div className="flex items-center rounded-md border border-border bg-card">
             <button
@@ -136,10 +140,18 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setView("kanban")}
-              className={`flex items-center rounded-r-md border-l border-border px-2.5 py-1.5 text-xs transition-colors ${view === "kanban" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted"}`}
-              title="Vista kanban"
+              className={`flex items-center border-l border-border px-2.5 py-1.5 text-xs transition-colors ${view === "kanban" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+              title="Vista kanban de cliente"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("management")}
+              className={`flex items-center rounded-r-md border-l border-border px-2.5 py-1.5 text-xs transition-colors ${view === "management" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+              title="Gestión semanal"
+            >
+              <Columns3 className="h-3.5 w-3.5" />
             </button>
           </div>
 
@@ -164,14 +176,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <Card className="border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {error}
         </Card>
       )}
 
-      {/* Skeleton */}
       {!companies && !error && (
         <Card className="overflow-hidden p-0">
           <div className="divide-y">
@@ -188,14 +198,12 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Empty */}
       {companies?.length === 0 && (
         <Card className="p-12 text-center">
           <p className="text-sm text-muted-foreground">Aún no tienes empresas asignadas.</p>
         </Card>
       )}
 
-      {/* Table */}
       {sortedCompanies && sortedCompanies.length > 0 && view === "table" && (
         <Card className="overflow-hidden p-0">
           <CompanyTable
@@ -207,9 +215,12 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Kanban */}
       {sortedCompanies && sortedCompanies.length > 0 && view === "kanban" && (
         <KanbanView companies={sortedCompanies} />
+      )}
+
+      {sortedCompanies && sortedCompanies.length > 0 && view === "management" && (
+        <ManagementKanbanView companies={sortedCompanies} onUpdate={fetchCompanies} />
       )}
     </div>
   );
