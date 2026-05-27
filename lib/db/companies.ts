@@ -23,7 +23,7 @@ export async function listCompanies(
 
   const [
     { data: companies, error: cErr },
-    { data: invoiceRows, error: iErr },
+    { data: rawInvoices, error: iErr },
   ] = await Promise.all([
     supabase
       .from("company_metrics")
@@ -31,7 +31,7 @@ export async function listCompanies(
       .order("days_since_last_op", { ascending: false, nullsFirst: true }),
     admin
       .from("invoices")
-      .select("id, company_id, amount, issued_at, status, debtors(name)")
+      .select("id, company_id, debtor_id, amount, issued_at, status")
       .in("status", ["in_collection", "assigned_competitor"])
       .order("issued_at", { ascending: false }),
   ]);
@@ -39,16 +39,25 @@ export async function listCompanies(
   if (cErr) throw new Error(cErr.message);
   if (iErr) throw new Error(iErr.message);
 
-  console.log("[listCompanies] invoiceRows count:", invoiceRows?.length ?? 0, "sample:", invoiceRows?.[0] ?? null);
+  const debtorIds = Array.from(
+    new Set((rawInvoices ?? []).map((r) => r.debtor_id).filter(Boolean)),
+  );
+  const { data: debtorRows, error: dErr } =
+    debtorIds.length > 0
+      ? await admin.from("debtors").select("id, name").in("id", debtorIds)
+      : { data: [], error: null };
+  if (dErr) throw new Error(dErr.message);
+
+  const debtorNameById = new Map(
+    (debtorRows ?? []).map((d) => [d.id, d.name as string]),
+  );
 
   const today = Date.now();
   const byCompany = new Map<string, InvoicePreview[]>();
-  for (const row of invoiceRows ?? []) {
-    const debtor = row.debtors as { name: string } | { name: string }[] | null;
-    const debtorName = Array.isArray(debtor) ? debtor[0]?.name : debtor?.name;
+  for (const row of rawInvoices ?? []) {
     const preview: InvoicePreview = {
       id: row.id,
-      debtor_name: debtorName ?? "—",
+      debtor_name: debtorNameById.get(row.debtor_id) ?? "—",
       amount: Number(row.amount),
       issued_at: row.issued_at,
       days_since_issued: Math.floor(

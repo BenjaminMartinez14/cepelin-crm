@@ -54,7 +54,7 @@ export function VolumeChart({
                 formatter={(v) => formatCurrency(Number(v), country)}
                 labelClassName="text-xs"
               />
-              <Bar dataKey="volume" fill="#16a34a" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="volume" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (

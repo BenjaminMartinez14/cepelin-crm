@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { CompanyStatusBadge } from "@/components/StatusBadge";
@@ -52,6 +53,9 @@ function InvoiceStatusPills({
         >
           <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
           {counts[key]} {label}
+          {activePillStatus === key
+            ? <ChevronUp className="h-2.5 w-2.5" />
+            : <ChevronDown className="h-2.5 w-2.5" />}
         </button>
       ))}
     </div>

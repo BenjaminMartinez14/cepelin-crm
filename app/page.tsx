@@ -16,9 +16,9 @@ export default async function LandingPage() {
       <nav className="flex items-center justify-between px-8 py-5 bg-card border-b border-border">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-          <span className="text-sm font-semibold tracking-tight text-white">Cepelin</span>
+          <span className="text-sm font-semibold tracking-tight text-card-foreground">Cepelin</span>
         </div>
-        <span className="text-xs text-slate-400 font-medium">KAM CRM</span>
+        <span className="text-xs text-muted-foreground font-medium">KAM CRM</span>
       </nav>
 
       {/* Hero */}

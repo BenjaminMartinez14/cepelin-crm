@@ -31,7 +31,7 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
       </Link>
 
       {error && (
-        <Card className="border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</Card>
+        <Card className="border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</Card>
       )}
 
       {!detail && !error && (

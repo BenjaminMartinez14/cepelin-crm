@@ -36,7 +36,6 @@ export default function DashboardPage() {
   const fetchCompanies = useCallback(() => {
     apiGet<CompanyMetrics[]>("/api/companies")
       .then((data) => {
-        console.log("[DEBUG] /api/companies – first company urgent_invoices:", data?.[0]?.urgent_invoices);
         setCompanies(data);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Error"));

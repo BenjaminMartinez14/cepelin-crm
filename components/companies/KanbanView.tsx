@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   countryFlag,
   formatCurrency,
@@ -19,9 +20,9 @@ const COLUMNS: {
   headerClass: string;
   borderClass: string;
 }[] = [
-  { status: "enrolled",  label: "Enrolada",   headerClass: "text-slate-400",   borderClass: "border-slate-700" },
-  { status: "active",    label: "Activa",      headerClass: "text-blue-400",    borderClass: "border-blue-800"  },
-  { status: "recurring", label: "Recurrente",  headerClass: "text-emerald-400", borderClass: "border-emerald-800" },
+  { status: "enrolled",  label: "Enrolada",   headerClass: "text-muted-foreground", borderClass: "border-border"        },
+  { status: "active",    label: "Activa",      headerClass: "text-blue-600",         borderClass: "border-blue-200"      },
+  { status: "recurring", label: "Recurrente",  headerClass: "text-emerald-600",      borderClass: "border-emerald-200"   },
 ];
 
 const URGENT_STATUSES = [
@@ -125,6 +126,9 @@ function CompanyCard({
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
                 {company.invoice_status_counts![key]} {label}
+                {activeStatus === key
+                  ? <ChevronUp className="h-2.5 w-2.5" />
+                  : <ChevronDown className="h-2.5 w-2.5" />}
               </button>
             ))}
           </div>

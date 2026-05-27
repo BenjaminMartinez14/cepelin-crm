@@ -4,37 +4,38 @@
 
 @layer base {
   :root {
-    --background:           225 50% 8%;
-    --foreground:           220 14% 98%;
-    --card:                 221 39% 11%;
-    --card-foreground:      220 14% 98%;
-    --popover:              221 39% 11%;
-    --popover-foreground:   220 14% 98%;
-    --primary:              165 100% 42%;
-    --primary-foreground:   0 0% 4%;
-    --secondary:            221 39% 15%;
-    --secondary-foreground: 220 14% 98%;
-    --muted:                221 39% 11%;
-    --muted-foreground:     218 11% 65%;
-    --accent:               165 100% 42%;
-    --accent-foreground:    0 0% 4%;
-    --destructive:          0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border:               217 33% 17%;
-    --input:                217 33% 17%;
-    --ring:                 165 100% 42%;
-    --warning:              38 92% 50%;
-    --success:              160 68% 40%;
-    --chart-1:              165 100% 42%;
-    --chart-2:              213 71% 52%;
-    --chart-3:              38 92% 50%;
-    --chart-4:              265 83% 57%;
-    --chart-5:              0 84% 60%;
-    --radius: 0.5rem;
+    /* Xepelin — light */
+    --background:             240 43% 95%;   /* #EEEEF8 page */
+    --foreground:             220 30% 34%;   /* #3D4F72 body text */
+    --card:                   0 0% 100%;     /* #FFFFFF surfaces */
+    --card-foreground:        222 47% 11%;   /* #0F1729 headings */
+    --popover:                0 0% 100%;
+    --popover-foreground:     222 47% 11%;
+    --primary:                234 100% 65%; /* #4B5EFF */
+    --primary-foreground:     0 0% 100%;
+    --secondary:              231 46% 97%;  /* #F4F5FB */
+    --secondary-foreground:   220 30% 34%;
+    --muted:                  231 46% 97%;
+    --muted-foreground:       221 16% 60%;  /* #8892A8 */
+    --accent:                 235 100% 96%; /* #E8EAFF */
+    --accent-foreground:      234 100% 65%;
+    --destructive:            0 100% 68%;   /* #FF5A5A */
+    --destructive-foreground: 0 0% 100%;
+    --border:                 230 33% 90%;  /* #DDE0EE */
+    --input:                  230 33% 90%;
+    --ring:                   234 100% 65%;
+    --warning:                37 91% 55%;   /* #F5A623 */
+    --success:                160 70% 45%;  /* #22C38E */
+    --chart-1:                234 100% 65%;
+    --chart-2:                160 70% 45%;
+    --chart-3:                37 91% 55%;
+    --chart-4:                265 83% 57%;
+    --chart-5:                0 100% 68%;
+    --radius:                 0.75rem;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  body { @apply bg-background text-foreground antialiased; }
 }
