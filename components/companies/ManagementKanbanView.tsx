@@ -183,10 +183,15 @@ export function ManagementKanbanView({ companies, onUpdate }: Props) {
       prev.map((c) => c.id === companyId ? { ...c, management_status: targetStatus } : c),
     );
 
-    const ok = await patchManagementStatus(companyId, targetStatus);
-    if (!ok) {
+    try {
+      const ok = await patchManagementStatus(companyId, targetStatus);
+      if (!ok) {
+        setItems(prevItems);
+        toast.error("No se pudo mover la empresa. Intenta de nuevo.");
+      }
+    } catch {
       setItems(prevItems);
-      toast.error("No se pudo actualizar el estado");
+      toast.error("No se pudo mover la empresa. Intenta de nuevo.");
     }
   }, [items]);
 

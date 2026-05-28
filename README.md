@@ -119,8 +119,11 @@ Sign in with the Google account whose email = `SEED_KAM_EMAIL`.
 portfolio — so everyone sees data immediately.
 
 ## Deploy (Vercel)
-1. Import the repo; set the three `NEXT_PUBLIC_*` / service-role vars (seed vars are not
-   needed at runtime).
+1. Import the repo; set environment variables in Vercel dashboard > Settings > Environment Variables:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `GROQ_API_KEY` ← **required for AI features** (health scores + web risk analysis)
 2. Add the Vercel URL to Supabase Auth redirect URLs.
 3. Deploy.
 

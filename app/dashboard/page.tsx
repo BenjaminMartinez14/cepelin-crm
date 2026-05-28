@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const [companies, setCompanies] = useState<CompanyMetrics[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState<{ current: number; total: number } | null>(null);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [view, setView] = useViewMode();
@@ -50,14 +51,16 @@ export default function DashboardPage() {
   async function handleRefreshScores() {
     if (!companies) return;
     setRefreshing(true);
+    setRefreshProgress({ current: 0, total: companies.length });
     let processed = 0;
     let errors = 0;
     try {
-      for (const company of companies) {
+      for (let i = 0; i < companies.length; i++) {
+        setRefreshProgress({ current: i + 1, total: companies.length });
         try {
           await apiPost<{ processed: number; errors: number }>(
             "/api/health-scores/generate",
-            { companyId: company.id },
+            { companyId: companies[i].id },
           );
           processed++;
         } catch {
@@ -65,10 +68,11 @@ export default function DashboardPage() {
         }
       }
       toast.success(
-        `${processed} empresa${processed !== 1 ? "s" : ""} analizada${processed !== 1 ? "s" : ""}${errors > 0 ? ` · ${errors} error${errors !== 1 ? "es" : ""}` : ""}`,
+        `${processed} empresa${processed !== 1 ? "s" : ""} actualizada${processed !== 1 ? "s" : ""}${errors > 0 ? ` · ${errors} error${errors !== 1 ? "es" : ""}` : ""}`,
       );
     } finally {
       setRefreshing(false);
+      setRefreshProgress(null);
       fetchCompanies();
     }
   }
@@ -164,7 +168,9 @@ export default function DashboardPage() {
             {refreshing ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Analizando…
+                {refreshProgress
+                  ? `Analizando ${refreshProgress.current} de ${refreshProgress.total}…`
+                  : "Analizando…"}
               </>
             ) : (
               <>
@@ -205,7 +211,7 @@ export default function DashboardPage() {
       )}
 
       {sortedCompanies && sortedCompanies.length > 0 && view === "table" && (
-        <Card className="overflow-hidden p-0">
+        <Card className="overflow-x-auto p-0">
           <CompanyTable
             companies={sortedCompanies}
             sortKey={sortKey}

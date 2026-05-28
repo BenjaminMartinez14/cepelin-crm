@@ -4,12 +4,10 @@ import { getAuthedKam } from "@/lib/auth";
 import { generateHealthScore } from "@/lib/ai/health-score";
 import type { ApiResponse, CompanyMetrics, TopDebtor } from "@/types";
 
-// Vercel Pro: 60s timeout for batch of ~15 companies (~20-30s total).
-// On Hobby plan (10s limit) only single-company calls will succeed.
-export const maxDuration = 60;
+export const maxDuration = 30;
 
 interface GenerateBody {
-  companyId?: string;
+  companyId: string;
 }
 
 interface GenerateResult {
@@ -36,16 +34,14 @@ export async function POST(
   const { companyId } = body;
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (companyId && !UUID_RE.test(companyId)) {
-    return NextResponse.json({ data: null, error: "companyId inválido" }, { status: 400 });
+  if (!companyId || !UUID_RE.test(companyId)) {
+    return NextResponse.json({ data: null, error: "companyId requerido" }, { status: 400 });
   }
 
-  // Fetch target companies from the view (RLS scopes to this KAM automatically).
-  let query = supabase.from("company_metrics").select("*");
-  if (companyId) {
-    query = query.eq("id", companyId);
-  }
-  const { data: companies, error: fetchErr } = await query;
+  const { data: companies, error: fetchErr } = await supabase
+    .from("company_metrics")
+    .select("*")
+    .eq("id", companyId);
   if (fetchErr) {
     console.error("company_metrics fetch failed:", fetchErr.message);
     return NextResponse.json(

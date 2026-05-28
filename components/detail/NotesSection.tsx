@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { apiPatch } from "@/lib/api";
+import { apiPost } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { Note } from "@/types";
 
@@ -27,7 +27,7 @@ export function NotesSection({
     setSaving(true);
     setError(null);
     try {
-      const note = await apiPatch<Note>(`/api/companies/${companyId}/notes`, {
+      const note = await apiPost<Note>(`/api/companies/${companyId}/notes`, {
         content: trimmed,
       });
       setNotes((prev) => [note, ...prev]);

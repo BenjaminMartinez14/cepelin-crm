@@ -516,10 +516,7 @@ async function main() {
   // KAMs
   const { data: kams, error: kamErr } = await db
     .from("kams")
-    .insert([
-      { name: "Evaluador Demo", email: seedEmail },
-      { name: "María González", email: "maria.gonzalez@xepelin.test" },
-    ])
+    .insert([{ name: "Evaluador Demo", email: seedEmail }])
     .select();
   if (kamErr || !kams) throw new Error(`kams: ${kamErr?.message}`);
   const [kamA] = kams;
@@ -606,7 +603,7 @@ async function main() {
     console.log(`  ✓ ${spec.name} (${spec.country})`);
   }
 
-  console.log(`\nSeeded ${kams.length} KAMs, ${debtors.length} debtors, ${companyCount} companies.`);
+  console.log(`\nSeeded 1 KAM, ${debtors.length} debtors, ${companyCount} companies.`);
   console.log(`Evaluator KAM email: ${seedEmail}`);
 }
 

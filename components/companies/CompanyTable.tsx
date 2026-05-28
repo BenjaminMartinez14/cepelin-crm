@@ -72,25 +72,25 @@ export function CompanyTable({ companies, sortKey, sortDir, onSort }: CompanyTab
   }
 
   return (
-    <Table>
+    <Table className="min-w-[920px]">
       <TableHeader>
         <TableRow className="border-b bg-muted/40 hover:bg-muted/40">
-          <TableHead className="py-3 font-semibold text-foreground">Prioridad</TableHead>
+          <TableHead className="w-24 py-3 font-semibold text-foreground">Prioridad</TableHead>
           <TableHead className="py-3 font-semibold text-foreground">Empresa</TableHead>
-          <TableHead className="py-3 font-semibold text-foreground">Estado</TableHead>
-          <SortableHead col="volume_60d" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="text-right">
+          <TableHead className="w-32 py-3 font-semibold text-foreground">Estado</TableHead>
+          <SortableHead col="volume_60d" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="w-32 text-right">
             Volumen 60d
           </SortableHead>
-          <SortableHead col="days_since_last_op" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="text-right">
+          <SortableHead col="days_since_last_op" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="w-28 text-right">
             Última op.
           </SortableHead>
-          <SortableHead col="sow_percentage" sortKey={sortKey} sortDir={sortDir} onSort={onSort}>
+          <SortableHead col="sow_percentage" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="w-40">
             Share of Wallet
           </SortableHead>
-          <SortableHead col="credit_risk_score" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="text-right">
+          <SortableHead col="credit_risk_score" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="w-32 text-right">
             DICOM / Buró
           </SortableHead>
-          <SortableHead col="health_score" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="text-right">
+          <SortableHead col="health_score" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="w-24 text-right">
             Health
           </SortableHead>
         </TableRow>

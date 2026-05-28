@@ -19,6 +19,7 @@ import type { CompanyMetrics } from "@/types";
 
 const URGENT_STATUSES: { key: string; label: string; dotClass: string }[] = [
   { key: "reclamada",          label: "reclamada",   dotClass: "bg-red-500"   },
+  { key: "protestada",         label: "protestada",  dotClass: "bg-red-600"   },
   { key: "en_cobranza",        label: "en cobranza", dotClass: "bg-amber-500" },
   { key: "cedida_competencia", label: "competidor",  dotClass: "bg-orange-400" },
 ];
@@ -148,12 +149,12 @@ export function CompanyRow({ company, onPillClick, activePillStatus }: CompanyRo
         {company.health_score === null || (company.health_score === 0 && company.ai_generated_at === null) ? (
           <span className="text-muted-foreground">—</span>
         ) : (
-          <div className="flex items-center justify-end gap-1.5">
-            <span className="tabular-nums text-sm font-medium text-foreground">
+          <div className="flex items-center justify-end gap-2">
+            <span className="tabular-nums text-sm font-semibold text-foreground">
               {company.health_score}
             </span>
             <span
-              className={`inline-block h-2 w-2 rounded-full ${churnDotClass(company.churn_risk)}`}
+              className={`inline-block h-3 w-3 rounded-full ${churnDotClass(company.churn_risk)}`}
             />
           </div>
         )}

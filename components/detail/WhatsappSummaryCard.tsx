@@ -12,11 +12,8 @@ export function WhatsappSummaryCard({ company }: { company: CompanyMetrics }) {
           {company.whatsapp_summary}
         </p>
       ) : (
-        <p className="text-sm text-muted-foreground">Sin resumen de WhatsApp disponible.</p>
+        <p className="text-sm text-muted-foreground">Sin resumen disponible.</p>
       )}
-      <p className="mt-3 text-xs text-muted-foreground">
-        Integración futura: WhatsApp Business API para sincronización automática.
-      </p>
     </Card>
   );
 }

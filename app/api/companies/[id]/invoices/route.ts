@@ -14,6 +14,11 @@ export async function GET(
     return NextResponse.json({ data: null, error: "No autorizado" }, { status: 401 });
   }
 
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_RE.test(params.id)) {
+    return NextResponse.json({ data: null, error: "ID de empresa inválido" }, { status: 400 });
+  }
+
   const status = new URL(request.url).searchParams.get("status");
 
   try {

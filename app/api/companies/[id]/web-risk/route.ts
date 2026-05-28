@@ -57,18 +57,41 @@ export async function GET(
     return NextResponse.json({ data: null, error: "Empresa no encontrada" }, { status: 404 });
   }
 
-  const { name, country, tax_id } = company as CompanyMetrics;
+  const typedCompany = company as CompanyMetrics;
   const companyId = params.id;
   const kamId = kam.id;
 
-  // AbortController so we can cancel the OpenAI stream if the client disconnects
+  // Fetch urgent invoices to enrich the AI prompt with real portfolio data
+  const { data: invoiceRows } = await supabase
+    .from("invoices")
+    .select("id, debtor_id, amount, issued_at, status, debtors(name)")
+    .eq("company_id", companyId)
+    .order("amount", { ascending: false })
+    .limit(10);
+
+  const invoices = (invoiceRows ?? []).map((row) => {
+    const issued = new Date(row.issued_at as string);
+    const daysSince = Math.floor((Date.now() - issued.getTime()) / 86_400_000);
+    const debtorRaw = (row as { debtors?: { name?: string } | null }).debtors;
+    return {
+      id: row.id as string,
+      debtor_name: debtorRaw?.name ?? "Desconocido",
+      amount: row.amount as number,
+      issued_at: row.issued_at as string,
+      days_since_issued: daysSince,
+      status: row.status as CompanyMetrics["country"] extends "CL" ? never : never,
+    };
+  }) as import("@/types").InvoicePreview[];
+
+  // AbortController so we can cancel the stream if the client disconnects
   const abortController = new AbortController();
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
         const fullText = await streamWebRiskAnalysis({
-          company: { name, country, tax_id },
+          company: typedCompany,
+          invoices,
           onChunk: (text) => send(controller, { type: "delta", text }),
           signal: abortController.signal,
         });
