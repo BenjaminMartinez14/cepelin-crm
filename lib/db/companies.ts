@@ -18,6 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export function computeUrgencyLabel(c: Omit<CompanyMetrics, "urgency_label">, today: Date): UrgencyLabel {
   const todayStr = today.toISOString().slice(0, 10);
   const counts = c.invoice_status_counts ?? {};
+  const lrd = c.latest_recontact_date;
 
   // 🔴 GESTIONAR HOY
   if (
@@ -25,7 +26,9 @@ export function computeUrgencyLabel(c: Omit<CompanyMetrics, "urgency_label">, to
     (counts.protestada ?? 0) > 0 ||
     c.has_reclamada ||
     (counts.cancelada ?? 0) > 0 ||
-    (c.churn_risk === "high" && (c.days_since_last_op ?? 999) > 30)
+    (c.churn_risk === "high" && (c.days_since_last_op ?? 999) > 30) ||
+    (lrd !== null && lrd <= todayStr) ||
+    (lrd === null && ((c.urgent_invoices?.length ?? 0) > 0 || (c.days_since_last_op ?? 0) > 15))
   ) return "gestionar_hoy";
 
   // 🟡 GESTIONAR ESTA SEMANA
@@ -34,16 +37,19 @@ export function computeUrgencyLabel(c: Omit<CompanyMetrics, "urgency_label">, to
   const sevenStr = sevenDaysOut.toISOString().slice(0, 10);
   if (
     (c.next_followup_date !== null && c.next_followup_date > todayStr && c.next_followup_date <= sevenStr) ||
+    (lrd !== null && lrd > todayStr && lrd <= sevenStr) ||
     ((counts.acuse_recibo ?? 0) + (counts.merito_ejecutivo ?? 0) > 0) ||
     (counts.cedida_competencia ?? 0) > 0 ||
     ((c.days_since_last_op ?? 0) >= 15 && (c.days_since_last_op ?? 0) <= 30) ||
     ((c.sow_percentage ?? 100) < 40 && c.days_since_last_op !== null)
   ) return "gestionar_semana";
 
-  // ⚪ SIN ACCIÓN — enrolled, never operated
-  if (c.status === "enrolled" && c.days_since_last_op === null) return "sin_accion";
+  // 🟢 AL DÍA — KAM already scheduled contact beyond 7 days
+  if (lrd !== null && lrd > sevenStr) return "al_dia";
 
-  // 🟢 AL DÍA
+  // ⚪ SIN ACCIÓN — enrolled, never operated, no gestiones
+  if (c.status === "enrolled" && c.days_since_last_op === null && lrd === null) return "sin_accion";
+
   return "al_dia";
 }
 
@@ -89,6 +95,22 @@ export async function listCompanies(
     (debtorRows ?? []).map((d) => [d.id, d.name as string]),
   );
 
+  // Batch-fetch the most recent gestión recontact_date per company
+  const { data: gestionRows } = companyIds.length > 0
+    ? await admin
+        .from("gestiones")
+        .select("company_id, recontact_date, created_at")
+        .in("company_id", companyIds)
+        .order("created_at", { ascending: false })
+    : { data: [] };
+
+  const latestRecontactByCompany = new Map<string, string>();
+  for (const row of gestionRows ?? []) {
+    if (!latestRecontactByCompany.has(row.company_id)) {
+      latestRecontactByCompany.set(row.company_id, row.recontact_date as string);
+    }
+  }
+
   const nowMs = Date.now();
   const byCompany = new Map<string, InvoicePreview[]>();
   for (const row of rawInvoices ?? []) {
@@ -108,8 +130,9 @@ export async function listCompanies(
   }
 
   const withUrgent = (companies ?? []).map((company) => ({
-    ...(company as Omit<CompanyMetrics, "urgency_label">),
+    ...(company as Omit<CompanyMetrics, "urgency_label" | "latest_recontact_date">),
     urgent_invoices: byCompany.get(company.id) ?? [],
+    latest_recontact_date: latestRecontactByCompany.get(company.id) ?? null,
   }));
 
   // Sort by urgency priority, then days_since_last_op descending within each tier
@@ -164,6 +187,16 @@ export async function getCompanyDetail(
   if (iErr) throw new Error(iErr.message);
   if (nErr) throw new Error(nErr.message);
 
+  const { data: latestGestion } = await supabase
+    .from("gestiones")
+    .select("recontact_date")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const latest_recontact_date: string | null = (latestGestion as { recontact_date: string } | null)?.recontact_date ?? null;
+
   const ACTIVE_STATUSES = new Set<InvoiceStatus>([
     "emitida", "entregada_receptor", "acuse_recibo", "merito_ejecutivo",
     "cedida_xepelin", "cedida_competencia", "en_cobranza",
@@ -186,7 +219,7 @@ export async function getCompanyDetail(
     };
   });
 
-  const base = company as Omit<CompanyMetrics, "urgency_label">;
+  const base = { ...(company as Omit<CompanyMetrics, "urgency_label" | "latest_recontact_date">), latest_recontact_date };
   const urgency_label = computeUrgencyLabel(base, new Date());
 
   return {

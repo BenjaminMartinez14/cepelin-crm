@@ -95,6 +95,8 @@ export interface CompanyMetrics extends Omit<Company, "kam_id"> {
   has_stale_entregada: boolean;
   // AI-generated insight (stored in companies table)
   key_insight: string | null;
+  // From most recent gestión (fetched separately, not in SQL view)
+  latest_recontact_date: string | null;
   // Computed in TypeScript by listCompanies() / getCompanyDetail()
   urgency_label: UrgencyLabel;
 }
@@ -132,6 +134,25 @@ export interface Note {
   company_id: string;
   kam_id: string;
   content: string;
+  created_at: string;
+}
+
+export type GestionType =
+  | "llamada_realizada"
+  | "whatsapp_enviado"
+  | "email_enviado"
+  | "reunion_agendada"
+  | "cliente_pidio_esperar"
+  | "no_contesto";
+
+export interface Gestion {
+  id: string;
+  company_id: string;
+  kam_id: string;
+  type: GestionType;
+  notes: string | null;
+  contacted_at: string;
+  recontact_date: string; // YYYY-MM-DD
   created_at: string;
 }
 

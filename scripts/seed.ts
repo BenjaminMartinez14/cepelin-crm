@@ -82,6 +82,13 @@ interface InvoiceSpec {
   status: InvoiceStatus;
 }
 
+interface GestionSpec {
+  type: string;
+  notes: string | null;
+  contacted_at: string;
+  recontact_date: string;
+}
+
 interface CompanySpec {
   name: string;
   country: Country;
@@ -95,6 +102,7 @@ interface CompanySpec {
   whatsapp_summary: string | null;
   invoices: InvoiceSpec[];
   notes: string[];
+  gestiones?: GestionSpec[];
 }
 
 const DEMO_COMPANIES: CompanySpec[] = [
@@ -130,6 +138,9 @@ const DEMO_COMPANIES: CompanySpec[] = [
       "Falabella sigue sin dar acuse de recibo en 3 facturas. Riesgo de que superen los 8 días y pierdan mérito ejecutivo.",
       "Cliente tiene volumen interesante pero la competencia se llevó 2 facturas grandes en enero.",
     ],
+    gestiones: [
+      { type: "llamada_realizada", notes: "Seguimiento a factura de Falabella. Cliente espera acuse esta semana.", contacted_at: new Date(today.getTime() - 2 * DAY).toISOString(), recontact_date: daysAgo(0) },
+    ],
   },
 
   {
@@ -162,6 +173,9 @@ const DEMO_COMPANIES: CompanySpec[] = [
       "Factura reclamada por Cencosud — error en descripción. Cliente tramitando NC. Urgente resolver antes del cierre de mes.",
       "45 días sin nuevas operaciones. Alta probabilidad de fuga si no actuamos esta semana.",
     ],
+    gestiones: [
+      { type: "whatsapp_enviado", notes: "Consulta sobre estado de nota de crédito de Cencosud. Sin respuesta aún.", contacted_at: new Date(today.getTime() - 1 * DAY).toISOString(), recontact_date: daysFromNow(1) },
+    ],
   },
 
   {
@@ -193,6 +207,9 @@ const DEMO_COMPANIES: CompanySpec[] = [
       "Factura de Codelco en proceso judicial. Esperar resolución legal antes de nuevas operaciones.",
       "Cliente era recurrente pero 60 días sin actividad. Riesgo de perder la relación permanentemente.",
     ],
+    gestiones: [
+      { type: "no_contesto", notes: "Tercer intento de contacto. Número activo pero no responde.", contacted_at: new Date(today.getTime() - 3 * DAY).toISOString(), recontact_date: daysAgo(0) },
+    ],
   },
 
   // ── CL: Healthy ───────────────────────────────────────────────────────────
@@ -223,6 +240,9 @@ const DEMO_COMPANIES: CompanySpec[] = [
       "Excelente cliente. Evaluar propuesta de aumento de línea para la temporada de exportaciones.",
       "SOW de Xepelin al 100%. Ningún volumen a competencia en el último año.",
     ],
+    gestiones: [
+      { type: "llamada_realizada", notes: "Reunión mensual. Cliente satisfecho. Evaluar aumento de línea.", contacted_at: new Date(today.getTime() - 5 * DAY).toISOString(), recontact_date: daysFromNow(3) },
+    ],
   },
 
   {
@@ -251,6 +271,9 @@ const DEMO_COMPANIES: CompanySpec[] = [
     notes: [
       "Cliente estratégico. No tocar tasa. Prioridad en resolución de cualquier incidencia.",
       "Línea de CLP 300M aprobada. Siguiente visita presencial en agosto.",
+    ],
+    gestiones: [
+      { type: "reunion_agendada", notes: "Revisión trimestral con CFO. Línea ampliada aprobada.", contacted_at: new Date(today.getTime() - 7 * DAY).toISOString(), recontact_date: daysFromNow(10) },
     ],
   },
 
@@ -543,7 +566,7 @@ const DEMO_COMPANIES: CompanySpec[] = [
 ];
 
 async function reset() {
-  for (const table of ["notes", "invoices", "contacts", "companies", "debtors", "kams"]) {
+  for (const table of ["gestiones", "notes", "invoices", "contacts", "companies", "debtors", "kams"]) {
     const { error } = await db.from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
     if (error) throw new Error(`reset ${table}: ${error.message}`);
   }
@@ -651,6 +674,21 @@ async function main() {
         })),
       );
       if (nErr) throw new Error(`notes ${spec.name}: ${nErr.message}`);
+    }
+
+    // Gestiones
+    if (spec.gestiones && spec.gestiones.length > 0) {
+      const { error: gErr } = await db.from("gestiones").insert(
+        spec.gestiones.map((g) => ({
+          company_id: company.id,
+          kam_id: kamA.id,
+          type: g.type,
+          notes: g.notes,
+          contacted_at: g.contacted_at,
+          recontact_date: g.recontact_date,
+        })),
+      );
+      if (gErr) throw new Error(`gestiones ${spec.name}: ${gErr.message}`);
     }
 
     summary.push({ name: spec.name, status: computedStatus, cedida: cedidaCount, total: spec.invoices.length });

@@ -23,8 +23,9 @@ import { Button } from "@/components/ui/button";
 import { UrgencyBadge } from "@/components/companies/UrgencyBadge";
 import { CreditRiskDot } from "@/components/CreditRiskDot";
 import { InvoiceQualityDots } from "@/components/InvoiceQualityDots";
+import { GestionModal } from "@/components/detail/GestionModal";
 import { countryFlag, formatDaysSince, urgencyTextClass, urgencyLevel } from "@/lib/format";
-import type { CompanyMetrics, ManagementStatus } from "@/types";
+import type { CompanyMetrics, Gestion, ManagementStatus } from "@/types";
 
 const COLUMNS: { status: ManagementStatus; label: string; headerClass: string; borderClass: string }[] = [
   { status: "por_gestionar",  label: "Por gestionar",   headerClass: "text-red-600",     borderClass: "border-red-200"     },
@@ -107,9 +108,11 @@ function CompanyCard({ company, isDragging = false }: { company: CompanyMetrics;
 
 function SortableCard({
   company,
+  onGestionadoClick,
   onQuickAction,
 }: {
   company: CompanyMetrics;
+  onGestionadoClick: (companyId: string) => void;
   onQuickAction: (companyId: string, status: ManagementStatus) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -131,7 +134,7 @@ function SortableCard({
       >
         <button
           type="button"
-          onClick={() => onQuickAction(company.id, "gestionado")}
+          onClick={() => onGestionadoClick(company.id)}
           className="flex-1 rounded py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
         >
           ✓ Gestionado
@@ -166,6 +169,18 @@ export function ManagementKanbanView({ companies, onUpdate }: Props) {
 
   useEffect(() => { setItems(companies); }, [companies]);
   const [resetting, setResetting] = useState(false);
+  const [gestionadoCompanyId, setGestionadoCompanyId] = useState<string | null>(null);
+
+  const handleGestionadoClick = useCallback((companyId: string) => {
+    setGestionadoCompanyId(companyId);
+  }, []);
+
+  const handleGestionModalSuccess = useCallback(async (_gestion: Gestion, companyId: string) => {
+    const prevItems = items;
+    setItems((prev) => prev.map((c) => c.id === companyId ? { ...c, management_status: "en_seguimiento" as ManagementStatus } : c));
+    const ok = await patchManagementStatus(companyId, "en_seguimiento");
+    if (!ok) { setItems(prevItems); toast.error("No se pudo mover la empresa"); }
+  }, [items]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -284,6 +299,7 @@ export function ManagementKanbanView({ companies, onUpdate }: Props) {
                         <SortableCard
                           key={company.id}
                           company={company}
+                          onGestionadoClick={handleGestionadoClick}
                           onQuickAction={handleQuickAction}
                         />
                       ))
@@ -299,6 +315,15 @@ export function ManagementKanbanView({ companies, onUpdate }: Props) {
           {activeCompany && <CompanyCard company={activeCompany} />}
         </DragOverlay>
       </DndContext>
+      {gestionadoCompanyId && (
+        <GestionModal
+          companyId={gestionadoCompanyId}
+          open={true}
+          onOpenChange={(open) => { if (!open) setGestionadoCompanyId(null); }}
+          onSuccess={(g) => { const id = gestionadoCompanyId; setGestionadoCompanyId(null); handleGestionModalSuccess(g, id); }}
+          compact
+        />
+      )}
     </div>
   );
 }
