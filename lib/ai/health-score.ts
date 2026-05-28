@@ -145,9 +145,13 @@ Devuelve exactamente este JSON:
 }`;
 }
 
+function stripFences(raw: string): string {
+  return raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+}
+
 function tryParse(raw: string) {
   try {
-    return resultSchema.safeParse(JSON.parse(raw));
+    return resultSchema.safeParse(JSON.parse(stripFences(raw)));
   } catch {
     return { success: false as const, error: new Error("JSON.parse failed") };
   }
