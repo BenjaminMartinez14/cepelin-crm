@@ -1,0 +1,72 @@
+<svg viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Inter, sans-serif">
+
+  <!-- Background -->
+  <rect width="900" height="520" fill="#f5f5f7" rx="16"/>
+
+  <!-- Title -->
+  <text x="450" y="42" text-anchor="middle" font-size="18" font-weight="700" fill="#1d1d1f">Cepelin KAM CRM — Architecture</text>
+
+  <!-- BROWSER -->
+  <rect x="340" y="70" width="220" height="64" rx="12" fill="white" stroke="#e5e5e7" stroke-width="1.5"/>
+  <text x="450" y="97" text-anchor="middle" font-size="13" font-weight="700" fill="#1d1d1f">🌐 Browser (KAM)</text>
+  <text x="450" y="116" text-anchor="middle" font-size="11" fill="#6e6e73">React · Client Components</text>
+
+  <!-- Arrow down -->
+  <line x1="450" y1="134" x2="450" y2="158" stroke="#4F46E5" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <polygon points="450,163 445,154 455,154" fill="#4F46E5"/>
+  <text x="465" y="150" font-size="10" fill="#4F46E5" font-weight="600">HTTPS</text>
+
+  <!-- VERCEL / NEXT.JS -->
+  <rect x="270" y="163" width="360" height="80" rx="12" fill="#EEF2FF" stroke="#4F46E5" stroke-width="1.5"/>
+  <text x="450" y="191" text-anchor="middle" font-size="13" font-weight="700" fill="#3730A3">Vercel · Next.js 14</text>
+  <text x="360" y="213" text-anchor="middle" font-size="11" fill="#4F46E5">Frontend</text>
+  <text x="540" y="213" text-anchor="middle" font-size="11" fill="#4F46E5">API Routes</text>
+  <line x1="450" y1="200" x2="450" y2="228" stroke="#4F46E5" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="360" y="228" text-anchor="middle" font-size="10" fill="#6e6e73">App Router · RSC</text>
+  <text x="540" y="228" text-anchor="middle" font-size="10" fill="#6e6e73">Zod · typed { data, error }</text>
+
+  <!-- Arrows down from Vercel -->
+  <line x1="340" y1="243" x2="220" y2="310" stroke="#6e6e73" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <polygon points="216,314 215,304 224,308" fill="#6e6e73"/>
+
+  <line x1="560" y1="243" x2="680" y2="310" stroke="#6e6e73" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <polygon points="684,314 676,308 685,304" fill="#6e6e73"/>
+
+  <!-- SUPABASE -->
+  <rect x="80" y="314" width="260" height="100" rx="12" fill="white" stroke="#e5e5e7" stroke-width="1.5"/>
+  <text x="210" y="340" text-anchor="middle" font-size="13" font-weight="700" fill="#1d1d1f">Supabase</text>
+  <text x="210" y="358" text-anchor="middle" font-size="11" fill="#6e6e73">PostgreSQL · Google OAuth</text>
+
+  <!-- Supabase sub-items -->
+  <rect x="96" y="368" width="100" height="32" rx="6" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+  <text x="146" y="385" text-anchor="middle" font-size="10" fill="#16A34A" font-weight="600">Row Level Security</text>
+  <text x="146" y="396" text-anchor="middle" font-size="9" fill="#16A34A">per-KAM isolation</text>
+
+  <rect x="208" y="368" width="116" height="32" rx="6" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1"/>
+  <text x="266" y="385" text-anchor="middle" font-size="10" fill="#4F46E5" font-weight="600">company_metrics view</text>
+  <text x="266" y="396" text-anchor="middle" font-size="9" fill="#4F46E5">computed fields in SQL</text>
+
+  <!-- GROQ -->
+  <rect x="560" y="314" width="260" height="100" rx="12" fill="white" stroke="#e5e5e7" stroke-width="1.5"/>
+  <text x="690" y="340" text-anchor="middle" font-size="13" font-weight="700" fill="#1d1d1f">Groq API</text>
+  <text x="690" y="358" text-anchor="middle" font-size="11" fill="#6e6e73">llama-3.3-70b-versatile</text>
+
+  <rect x="576" y="368" width="110" height="32" rx="6" fill="#FFF7ED" stroke="#FED7AA" stroke-width="1"/>
+  <text x="631" y="385" text-anchor="middle" font-size="10" fill="#C2410C" font-weight="600">Health Score</text>
+  <text x="631" y="396" text-anchor="middle" font-size="9" fill="#C2410C">~$0.0005/company</text>
+
+  <rect x="698" y="368" width="106" height="32" rx="6" fill="#FFF7ED" stroke="#FED7AA" stroke-width="1"/>
+  <text x="751" y="385" text-anchor="middle" font-size="10" fill="#C2410C" font-weight="600">Risk Analysis</text>
+  <text x="751" y="396" text-anchor="middle" font-size="9" fill="#C2410C">streaming SSE</text>
+
+  <!-- DATA MODEL section -->
+  <rect x="80" y="440" width="740" height="60" rx="12" fill="white" stroke="#e5e5e7" stroke-width="1.5"/>
+  <text x="130" y="462" font-size="11" font-weight="700" fill="#6e6e73">TABLES</text>
+  <text x="130" y="480" font-size="10" fill="#1d1d1f">kams · companies · invoices · debtors · contacts · notes · gestiones</text>
+  <text x="560" y="462" font-size="11" font-weight="700" fill="#6e6e73">SECURITY</text>
+  <text x="560" y="480" font-size="10" fill="#1d1d1f">RLS enforced at DB layer · KAM sees only their portfolio</text>
+
+  <!-- Vertical divider in bottom bar -->
+  <line x1="530" y1="448" x2="530" y2="492" stroke="#e5e5e7" stroke-width="1"/>
+
+</svg>

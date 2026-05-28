@@ -17,7 +17,7 @@ Sign in with any Google account. The app provisions a demo portfolio automatical
 
 ## Architecture
 
-![Architecture](./docs/architecture.png)
+![Architecture](./docs/architecture.svg)
 
 Every request flows through typed Next.js API routes → Supabase server client → PostgreSQL. Row Level Security in Postgres ensures a KAM can only ever read or write their own portfolio — the API layer is a second check, not the only one. Computed fields (credit used, SOW %, days since last operation) live in a SQL view, not in application code.
 
