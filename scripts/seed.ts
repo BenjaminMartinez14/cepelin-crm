@@ -4,6 +4,11 @@
  *
  * Requires: SUPABASE_SERVICE_ROLE_KEY, SEED_KAM_EMAIL
  * Set SEED_RESET=true to wipe and reseed.
+ *
+ * Company status is derived automatically from invoice history:
+ *   0 cedida_xepelin/cedida_mx in last 90 days → enrolled
+ *   1-2  → active
+ *   3+   → recurring
  */
 import { createAdminClient } from "../lib/supabase/admin";
 import type { Country, CompanyStatus, InvoiceStatus } from "../types";
@@ -42,6 +47,18 @@ function makeTaxId(country: Country): string {
   return country === "CL" ? makeRut() : makeRfc();
 }
 
+function computeStatus(invoices: InvoiceSpec[]): CompanyStatus {
+  const cutoff = daysAgo(90);
+  const cedidaCount = invoices.filter(
+    (inv) =>
+      (inv.status === "cedida_xepelin" || inv.status === "cedida_mx") &&
+      inv.issued_at >= cutoff,
+  ).length;
+  if (cedidaCount === 0) return "enrolled";
+  if (cedidaCount <= 2) return "active";
+  return "recurring";
+}
+
 // Named debtors for realistic stories
 const DEBTOR_NAMES = [
   "Cencosud S.A.",
@@ -68,7 +85,6 @@ interface InvoiceSpec {
 interface CompanySpec {
   name: string;
   country: Country;
-  status: CompanyStatus;
   credit_risk_score: number;
   credit_limit: number;
   enrolled_at: string;
@@ -86,7 +102,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Constructora Andes Ltda.",
     country: "CL",
-    status: "active",
     credit_risk_score: 62,
     credit_limit: 120_000_000,
     enrolled_at: daysAgo(280),
@@ -99,13 +114,17 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Último mensaje hace 18 días. Cliente prometió gestionar el acuse con Falabella pero no hay respuesta. 2 mensajes sin leer.",
     invoices: [
+      // 1 historical cedida_xepelin → active
+      { debtor: "Walmart Chile",         amount: 27_000_000, issued_at: daysAgo(55), status: "cedida_xepelin" },
+      // Ready to assign
       { debtor: "Falabella Retail S.A.", amount: 34_000_000, issued_at: daysAgo(25), status: "acuse_recibo" },
       { debtor: "Cencosud S.A.",         amount: 28_000_000, issued_at: daysAgo(22), status: "entregada_receptor" },
       { debtor: "Sodimac",               amount: 19_000_000, issued_at: daysAgo(21), status: "entregada_receptor" },
       { debtor: "Walmart Chile",         amount: 22_000_000, issued_at: daysAgo(31), status: "entregada_receptor" },
-      { debtor: "Cencosud S.A.",         amount: 41_000_000, issued_at: daysAgo(60), status: "cedida_competencia" },
-      { debtor: "Falabella Retail S.A.", amount: 30_000_000, issued_at: daysAgo(90), status: "cedida_competencia" },
-      { debtor: "Codelco",               amount: 55_000_000, issued_at: daysAgo(150), status: "cobrada" },
+      // Went to competitors / historical
+      { debtor: "Cencosud S.A.",         amount: 41_000_000, issued_at: daysAgo(100), status: "cedida_competencia" },
+      { debtor: "Falabella Retail S.A.", amount: 30_000_000, issued_at: daysAgo(130), status: "cedida_competencia" },
+      { debtor: "Codelco",               amount: 55_000_000, issued_at: daysAgo(200), status: "cobrada" },
     ],
     notes: [
       "Falabella sigue sin dar acuse de recibo en 3 facturas. Riesgo de que superen los 8 días y pierdan mérito ejecutivo.",
@@ -116,7 +135,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Textil Sudamericana Ltda.",
     country: "CL",
-    status: "active",
     credit_risk_score: 71,
     credit_limit: 80_000_000,
     enrolled_at: daysAgo(340),
@@ -129,7 +147,13 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Sin respuesta desde el 10 de mayo. 3 mensajes sin leer. Última operación fue hace 45 días.",
     invoices: [
+      // 1 historical cedida_xepelin (before current dispute) → active
+      { debtor: "Walmart Chile",         amount: 18_000_000, issued_at: daysAgo(75), status: "cedida_xepelin" },
+      // Current dispute
       { debtor: "Cencosud S.A.",         amount: 38_000_000, issued_at: daysAgo(45), status: "reclamada" },
+      // New emitida ready to assign once dispute resolves
+      { debtor: "Sodimac",               amount: 12_000_000, issued_at: daysAgo(5),  status: "emitida" },
+      // Historical paid invoices
       { debtor: "Falabella Retail S.A.", amount: 22_000_000, issued_at: daysAgo(120), status: "cobrada" },
       { debtor: "Walmart Chile",         amount: 18_000_000, issued_at: daysAgo(180), status: "cobrada" },
       { debtor: "Sodimac",               amount: 15_000_000, issued_at: daysAgo(240), status: "cobrada" },
@@ -143,7 +167,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Grupo Industrial Magallanes S.A.",
     country: "CL",
-    status: "recurring",
     credit_risk_score: 78,
     credit_limit: 200_000_000,
     enrolled_at: daysAgo(500),
@@ -156,7 +179,13 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Sin respuesta desde hace 2 meses. Número de contacto activo pero no responde.",
     invoices: [
+      // 3 cedida_xepelin from when they were still active (before the 60-day silence) → recurring
+      { debtor: "Codelco",               amount: 78_000_000, issued_at: daysAgo(70), status: "cedida_xepelin" },
+      { debtor: "Antofagasta Minerals",  amount: 52_000_000, issued_at: daysAgo(80), status: "cedida_xepelin" },
+      { debtor: "Codelco",               amount: 63_000_000, issued_at: daysAgo(88), status: "cedida_xepelin" },
+      // Current crisis
       { debtor: "Codelco",               amount: 95_000_000, issued_at: daysAgo(75), status: "protestada" },
+      // Older history
       { debtor: "Antofagasta Minerals",  amount: 60_000_000, issued_at: daysAgo(200), status: "cobrada" },
       { debtor: "Codelco",               amount: 45_000_000, issued_at: daysAgo(300), status: "cobrada" },
     ],
@@ -170,7 +199,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Sociedad Agrícola del Norte S.A.",
     country: "CL",
-    status: "recurring",
     credit_risk_score: 18,
     credit_limit: 150_000_000,
     enrolled_at: daysAgo(600),
@@ -183,6 +211,7 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Contacto fluido. Última confirmación de operación vía WhatsApp hace 5 días.",
     invoices: [
+      // 3 cedida_xepelin in 90 days → recurring ✓
       { debtor: "Walmart Chile",         amount: 42_000_000, issued_at: daysAgo(10), status: "cedida_xepelin" },
       { debtor: "Cencosud S.A.",         amount: 38_000_000, issued_at: daysAgo(20), status: "cedida_xepelin" },
       { debtor: "Sodimac",               amount: 31_000_000, issued_at: daysAgo(35), status: "cedida_xepelin" },
@@ -199,7 +228,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Minera Atacama SpA",
     country: "CL",
-    status: "recurring",
     credit_risk_score: 12,
     credit_limit: 300_000_000,
     enrolled_at: daysAgo(800),
@@ -212,11 +240,13 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Comunicación semanal con el CFO vía WhatsApp. Última confirmación de operación hace 3 días.",
     invoices: [
+      // 3 cedida_xepelin in 90 days → recurring ✓
       { debtor: "Codelco",               amount: 120_000_000, issued_at: daysAgo(8),  status: "cedida_xepelin" },
       { debtor: "Antofagasta Minerals",  amount: 85_000_000,  issued_at: daysAgo(15), status: "cedida_xepelin" },
+      { debtor: "Antofagasta Minerals",  amount: 92_000_000,  issued_at: daysAgo(55), status: "cedida_xepelin" },
       { debtor: "Codelco",               amount: 95_000_000,  issued_at: daysAgo(30), status: "en_cobranza" },
-      { debtor: "Codelco",               amount: 110_000_000, issued_at: daysAgo(70), status: "cobrada" },
-      { debtor: "Antofagasta Minerals",  amount: 78_000_000,  issued_at: daysAgo(100), status: "cobrada" },
+      { debtor: "Codelco",               amount: 110_000_000, issued_at: daysAgo(130), status: "cobrada" },
+      { debtor: "Antofagasta Minerals",  amount: 78_000_000,  issued_at: daysAgo(160), status: "cobrada" },
     ],
     notes: [
       "Cliente estratégico. No tocar tasa. Prioridad en resolución de cualquier incidencia.",
@@ -228,7 +258,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Importadora Tecnológica S.A.",
     country: "CL",
-    status: "active",
     credit_risk_score: 34,
     credit_limit: 90_000_000,
     enrolled_at: daysAgo(220),
@@ -241,7 +270,11 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Contacto activo. Cliente preguntó por tasa el viernes. Esperando propuesta revisada.",
     invoices: [
+      // 1 cedida_xepelin → active ✓
       { debtor: "Falabella Retail S.A.", amount: 25_000_000, issued_at: daysAgo(12), status: "cedida_xepelin" },
+      // New invoice ready to assign (opportunity to recover SOW)
+      { debtor: "Sodimac",               amount: 32_000_000, issued_at: daysAgo(5),  status: "emitida" },
+      // Went to competitors
       { debtor: "Cencosud S.A.",         amount: 48_000_000, issued_at: daysAgo(8),  status: "cedida_competencia" },
       { debtor: "Walmart Chile",         amount: 52_000_000, issued_at: daysAgo(20), status: "cedida_competencia" },
       { debtor: "Sodimac",               amount: 38_000_000, issued_at: daysAgo(35), status: "cedida_competencia" },
@@ -257,7 +290,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Alimentos del Sur Ltda.",
     country: "CL",
-    status: "active",
     credit_risk_score: 28,
     credit_limit: 75_000_000,
     enrolled_at: daysAgo(160),
@@ -270,10 +302,14 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Buena relación personal. Cliente abierto a conversación sobre la factura de Falabella.",
     invoices: [
+      // 1 historical cedida_xepelin → active ✓
+      { debtor: "Sodimac",               amount: 21_000_000, issued_at: daysAgo(80), status: "cedida_xepelin" },
+      // Ready to assign
       { debtor: "Falabella Retail S.A.", amount: 33_000_000, issued_at: daysAgo(9),  status: "acuse_recibo" },
+      // Went to competitors
       { debtor: "Walmart Chile",         amount: 44_000_000, issued_at: daysAgo(15), status: "cedida_competencia" },
       { debtor: "Walmart Chile",         amount: 38_000_000, issued_at: daysAgo(30), status: "cedida_competencia" },
-      { debtor: "Sodimac",               amount: 21_000_000, issued_at: daysAgo(90), status: "cobrada" },
+      { debtor: "Sodimac",               amount: 17_000_000, issued_at: daysAgo(130), status: "cobrada" },
     ],
     notes: [
       "Factura de Falabella en acuse de recibo — excelente oportunidad para ceder a Xepelin esta semana.",
@@ -281,11 +317,10 @@ const DEMO_COMPANIES: CompanySpec[] = [
     ],
   },
 
-  // ── CL: Distribuidora (healthy with upcoming followup) ────────────────────
+  // ── CL: Distribuidora (healthy recurring) ────────────────────────────────
   {
     name: "Distribuidora El Pacífico S.A.",
     country: "CL",
-    status: "recurring",
     credit_risk_score: 22,
     credit_limit: 100_000_000,
     enrolled_at: daysAgo(450),
@@ -298,11 +333,14 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Cliente responde rápido. Confirmó disponibilidad para reunión la próxima semana.",
     invoices: [
-      { debtor: "Sodimac",               amount: 28_000_000, issued_at: daysAgo(12), status: "merito_ejecutivo" },
-      { debtor: "Falabella Retail S.A.", amount: 36_000_000, issued_at: daysAgo(18), status: "merito_ejecutivo" },
+      // 3 cedida_xepelin in 90 days → recurring ✓
       { debtor: "Cencosud S.A.",         amount: 42_000_000, issued_at: daysAgo(25), status: "cedida_xepelin" },
       { debtor: "Walmart Chile",         amount: 31_000_000, issued_at: daysAgo(50), status: "cedida_xepelin" },
-      { debtor: "Sodimac",               amount: 39_000_000, issued_at: daysAgo(80), status: "cobrada" },
+      { debtor: "Falabella Retail S.A.", amount: 33_000_000, issued_at: daysAgo(75), status: "cedida_xepelin" },
+      // Ready to assign
+      { debtor: "Sodimac",               amount: 28_000_000, issued_at: daysAgo(12), status: "merito_ejecutivo" },
+      { debtor: "Falabella Retail S.A.", amount: 36_000_000, issued_at: daysAgo(18), status: "merito_ejecutivo" },
+      { debtor: "Sodimac",               amount: 39_000_000, issued_at: daysAgo(110), status: "cobrada" },
     ],
     notes: [
       "Facturas de Sodimac y Falabella con mérito ejecutivo — proponer cesión inmediata.",
@@ -314,7 +352,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Logística Nacional SpA",
     country: "CL",
-    status: "enrolled",
     credit_risk_score: 45,
     credit_limit: 50_000_000,
     enrolled_at: daysAgo(90),
@@ -324,6 +361,7 @@ const DEMO_COMPANIES: CompanySpec[] = [
     news_context: null,
     whatsapp_summary: "Onboarding completado pero sin primera operación. Número validado.",
     invoices: [
+      // Only emitida → 0 cedida_xepelin → enrolled ✓
       { debtor: "Walmart Chile",         amount: 18_000_000, issued_at: daysAgo(15), status: "emitida" },
       { debtor: "Cencosud S.A.",         amount: 24_000_000, issued_at: daysAgo(20), status: "emitida" },
       { debtor: "Falabella Retail S.A.", amount: 12_000_000, issued_at: daysAgo(30), status: "emitida" },
@@ -336,7 +374,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Empresa de Servicios Técnicos S.A.",
     country: "CL",
-    status: "enrolled",
     credit_risk_score: 52,
     credit_limit: 40_000_000,
     enrolled_at: daysAgo(45),
@@ -345,9 +382,14 @@ const DEMO_COMPANIES: CompanySpec[] = [
     interaction_summary: null,
     news_context: null,
     whatsapp_summary: null,
-    invoices: [],
+    invoices: [
+      // Only emitida → 0 cedida_xepelin → enrolled ✓
+      { debtor: "Cencosud S.A.",         amount: 14_000_000, issued_at: daysAgo(10), status: "emitida" },
+      { debtor: "Falabella Retail S.A.", amount: 19_000_000, issued_at: daysAgo(18), status: "emitida" },
+      { debtor: "Sodimac",               amount: 11_000_000, issued_at: daysAgo(28), status: "emitida" },
+    ],
     notes: [
-      "Empresa enrolada recientemente. Sin facturas aún. Necesita guía para emitir DTE correctamente.",
+      "Empresa enrolada recientemente. Tiene 3 facturas emitidas listas para ceder. Coordinar primer onboarding operativo y guiar proceso DTE.",
     ],
   },
 
@@ -355,7 +397,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Walmart México Proveedores S.A. de C.V.",
     country: "MX",
-    status: "recurring",
     credit_risk_score: 15,
     credit_limit: 5_000_000,  // MXN scale
     enrolled_at: daysAgo(700),
@@ -368,11 +409,12 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Comunicación fluida con el equipo de tesorería. Operan en ciclos mensuales predecibles.",
     invoices: [
+      // 3 cedida_mx in 90 days → recurring ✓
       { debtor: "Walmart México",        amount: 850_000,  issued_at: daysAgo(10), status: "cedida_mx" },
       { debtor: "FEMSA Comercio",        amount: 620_000,  issued_at: daysAgo(15), status: "cedida_mx" },
       { debtor: "Walmart México",        amount: 790_000,  issued_at: daysAgo(45), status: "cedida_mx" },
-      { debtor: "Walmart México",        amount: 910_000,  issued_at: daysAgo(75), status: "cobrada" },
-      { debtor: "FEMSA Comercio",        amount: 540_000,  issued_at: daysAgo(100), status: "cobrada" },
+      { debtor: "Walmart México",        amount: 910_000,  issued_at: daysAgo(110), status: "cobrada" },
+      { debtor: "FEMSA Comercio",        amount: 540_000,  issued_at: daysAgo(140), status: "cobrada" },
     ],
     notes: [
       "Cliente ancla en MX. Alta estabilidad operacional.",
@@ -383,7 +425,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Alimentos Tropicales S.A. de C.V.",
     country: "MX",
-    status: "recurring",
     credit_risk_score: 20,
     credit_limit: 3_000_000,
     enrolled_at: daysAgo(500),
@@ -396,11 +437,13 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Responde en menos de 2 horas. Muy colaborativo con documentación.",
     invoices: [
+      // 3 cedida_mx in 90 days → recurring ✓
       { debtor: "Grupo Bimbo",           amount: 480_000,  issued_at: daysAgo(7),  status: "cedida_mx" },
       { debtor: "FEMSA Comercio",        amount: 530_000,  issued_at: daysAgo(18), status: "cedida_mx" },
+      { debtor: "Arca Continental",      amount: 420_000,  issued_at: daysAgo(50), status: "cedida_mx" },
       { debtor: "Walmart México",        amount: 410_000,  issued_at: daysAgo(38), status: "en_cobranza" },
-      { debtor: "Grupo Bimbo",           amount: 490_000,  issued_at: daysAgo(65), status: "cobrada" },
-      { debtor: "FEMSA Comercio",        amount: 375_000,  issued_at: daysAgo(90), status: "cobrada" },
+      { debtor: "Grupo Bimbo",           amount: 490_000,  issued_at: daysAgo(110), status: "cobrada" },
+      { debtor: "FEMSA Comercio",        amount: 375_000,  issued_at: daysAgo(140), status: "cobrada" },
     ],
     notes: [
       "Proponer aumento de línea a MXN 4.5M para temporada alta Q3.",
@@ -411,7 +454,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Comercializadora Azteca S.A. de C.V.",
     country: "MX",
-    status: "active",
     credit_risk_score: 38,
     credit_limit: 2_500_000,
     enrolled_at: daysAgo(180),
@@ -424,7 +466,11 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Contacto activo. Cliente interesado en comparar tasas de nuevo.",
     invoices: [
+      // 1 cedida_mx → active ✓
       { debtor: "Arca Continental",      amount: 320_000,  issued_at: daysAgo(14), status: "cedida_mx" },
+      // New CFDI ready to assign (opportunity)
+      { debtor: "Arca Continental",      amount: 280_000,  issued_at: daysAgo(5),  status: "vigente" },
+      // Went to competitors
       { debtor: "FEMSA Comercio",        amount: 680_000,  issued_at: daysAgo(10), status: "cedida_competencia" },
       { debtor: "FEMSA Comercio",        amount: 520_000,  issued_at: daysAgo(25), status: "cedida_competencia" },
       { debtor: "Walmart México",        amount: 440_000,  issued_at: daysAgo(50), status: "cedida_competencia" },
@@ -439,7 +485,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Grupo Cemento del Norte S.A. de C.V.",
     country: "MX",
-    status: "active",
     credit_risk_score: 65,
     credit_limit: 4_000_000,
     enrolled_at: daysAgo(350),
@@ -452,10 +497,13 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Último mensaje hace 3 semanas. Cliente leyó pero no respondió.",
     invoices: [
+      // 1 historical cedida_mx before the 35-day silence → active ✓
+      { debtor: "Arca Continental",      amount: 450_000,  issued_at: daysAgo(85), status: "cedida_mx" },
+      // CFDIs currently sitting — ready to assign but client not engaging
       { debtor: "Cemex Operaciones",     amount: 740_000,  issued_at: daysAgo(36), status: "vigente" },
       { debtor: "Cemex Operaciones",     amount: 680_000,  issued_at: daysAgo(38), status: "vigente" },
       { debtor: "Arca Continental",      amount: 290_000,  issued_at: daysAgo(40), status: "vigente" },
-      { debtor: "Cemex Operaciones",     amount: 920_000,  issued_at: daysAgo(180), status: "cobrada" },
+      { debtor: "Cemex Operaciones",     amount: 920_000,  issued_at: daysAgo(200), status: "cobrada" },
     ],
     notes: [
       "3 CFDIs vigentes sin ceder. 35 días sin actividad. Llamar urgente.",
@@ -466,7 +514,6 @@ const DEMO_COMPANIES: CompanySpec[] = [
   {
     name: "Transportes Pacífico MX S.A. de C.V.",
     country: "MX",
-    status: "active",
     credit_risk_score: 73,
     credit_limit: 1_800_000,
     enrolled_at: daysAgo(250),
@@ -479,10 +526,14 @@ const DEMO_COMPANIES: CompanySpec[] = [
     whatsapp_summary:
       "Cliente frustrado. Último mensaje fue queja por la cancelación. Requiere llamada de seguimiento urgente.",
     invoices: [
+      // 1 cedida_mx before the cancelation issues → active ✓
+      { debtor: "FEMSA Comercio",        amount: 310_000,  issued_at: daysAgo(85), status: "cedida_mx" },
+      // Current crisis
       { debtor: "Walmart México",        amount: 420_000,  issued_at: daysAgo(25), status: "cancelada" },
       { debtor: "Walmart México",        amount: 380_000,  issued_at: daysAgo(28), status: "cancelada" },
-      { debtor: "FEMSA Comercio",        amount: 290_000,  issued_at: daysAgo(90), status: "cobrada" },
-      { debtor: "Walmart México",        amount: 350_000,  issued_at: daysAgo(140), status: "cobrada" },
+      // Historical
+      { debtor: "FEMSA Comercio",        amount: 290_000,  issued_at: daysAgo(130), status: "cobrada" },
+      { debtor: "Walmart México",        amount: 350_000,  issued_at: daysAgo(170), status: "cobrada" },
     ],
     notes: [
       "2 CFDIs cancelados por Walmart MX. El cliente no puede operar hasta resolver la disputa.",
@@ -522,7 +573,6 @@ async function main() {
   const [kamA] = kams;
 
   // Debtors (shared reference pool)
-  // Debtors that appear only in MX companies get RFC format; all others get RUT.
   const MX_ONLY_DEBTORS = new Set(["Walmart México", "FEMSA Comercio", "Grupo Bimbo", "Arca Continental", "Cemex Operaciones"]);
   const { data: debtors, error: debErr } = await db
     .from("debtors")
@@ -532,14 +582,16 @@ async function main() {
 
   const debtorByName = new Map(debtors.map((d) => [d.name, d.id]));
 
-  let companyCount = 0;
+  const cutoff90 = daysAgo(90);
+  const summary: Array<{ name: string; status: CompanyStatus; cedida: number; total: number }> = [];
 
   for (const spec of DEMO_COMPANIES) {
-    const xepVolume = spec.invoices
-      .filter((i) =>
-        ["cedida_xepelin", "en_cobranza", "cobrada", "cedida_mx"].includes(i.status),
-      )
-      .reduce((s, i) => s + i.amount, 0);
+    const cedidaCount = spec.invoices.filter(
+      (i) =>
+        (i.status === "cedida_xepelin" || i.status === "cedida_mx") &&
+        i.issued_at >= cutoff90,
+    ).length;
+    const computedStatus = computeStatus(spec.invoices);
 
     const { data: company, error: cErr } = await db
       .from("companies")
@@ -548,7 +600,7 @@ async function main() {
         name: spec.name,
         tax_id: makeTaxId(spec.country),
         country: spec.country,
-        status: spec.status,
+        status: computedStatus,
         enrolled_at: spec.enrolled_at,
         credit_limit: spec.credit_limit,
         next_followup_date: spec.next_followup_date,
@@ -563,7 +615,6 @@ async function main() {
       .select()
       .single();
     if (cErr || !company) throw new Error(`company ${spec.name}: ${cErr?.message}`);
-    companyCount++;
 
     // Contact
     await db.from("contacts").insert({
@@ -602,10 +653,21 @@ async function main() {
       if (nErr) throw new Error(`notes ${spec.name}: ${nErr.message}`);
     }
 
-    console.log(`  ✓ ${spec.name} (${spec.country})`);
+    summary.push({ name: spec.name, status: computedStatus, cedida: cedidaCount, total: spec.invoices.length });
   }
 
-  console.log(`\nSeeded 1 KAM, ${debtors.length} debtors, ${companyCount} companies.`);
+  console.log(`\nSeeded 1 KAM, ${debtors.length} debtors, ${summary.length} companies.\n`);
+
+  const col1 = Math.max(...summary.map((r) => r.name.length), 12);
+  const header = `${"Company".padEnd(col1)}  ${"Status".padEnd(10)}  ${"Cedida(90d)".padEnd(11)}  Total`;
+  console.log(header);
+  console.log("─".repeat(header.length));
+  for (const r of summary) {
+    console.log(
+      `${r.name.padEnd(col1)}  ${r.status.padEnd(10)}  ${String(r.cedida).padEnd(11)}  ${r.total}`,
+    );
+  }
+  console.log();
   console.log(`Evaluator KAM email: ${seedEmail}`);
 }
 
