@@ -1,16 +1,36 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import type { CompanyMetrics, TopDebtor } from "@/types";
+import { GESTION_LABELS } from "@/lib/db/gestiones";
 
 // Groq is OpenAI-compatible; we reuse the SDK with a different base URL.
 
-// Cost estimate at scale:
+// === COST & LATENCY ESTIMATES ===
 // Model: llama-3.3-70b-versatile via Groq
-// Cost: ~$0.0005 per company analysis (Groq pricing)
-// 10K companies/month ≈ $5/month
-// P50 latency: ~800ms per company
-// Batch of 15 companies: ~15-20s total (sequential)
-// Production path: queue with concurrency=20 → ~1min for 10K
+// Cost: ~$0.0005 per company (Groq pricing May 2026)
+// 10K companies/month = ~$5/month
+// 10K companies/day (cron) = ~$150/month
+// P50 latency: ~800ms | P99: ~3s
+// Sequential batch of 15: ~15-20s
+// Production path: queue with concurrency=10 →
+//   10K companies in ~15 min
+// Retry: 1 retry on bad JSON, then skip + log
+// Timeout: 15s per company
+
+export interface GestionInput {
+  type: string;
+  contacted_at: string;
+  recontact_date: string;
+  notes: string | null;
+  days_ago: number;
+  is_overdue: boolean;
+}
+
+export interface HealthScorePayload {
+  company: CompanyMetrics;
+  topDebtors: TopDebtor[];
+  gestiones_summary: GestionInput[];
+}
 
 export interface HealthScoreResult {
   health_score: number;
@@ -28,81 +48,101 @@ const resultSchema = z.object({
   key_insight: z.string().min(10).max(300),
 });
 
-const SYSTEM_PROMPT = `You are a senior credit analyst and KAM advisor at Xepelin, a B2B factoring fintech operating in Chile and Mexico. Your job is to make JUDGMENT CALLS about client health that go beyond what statistics alone can tell.
+const SYSTEM_PROMPT = `Eres un analista senior de cuentas en Cepelin, una fintech de factoring B2B en Chile y México.
 
-You have access to quantitative signals (volume, SOW, days inactive), qualitative signals (interaction history, recent news, WhatsApp context, sector), and invoice portfolio details (SII/CFDI states, debtor quality).
+Tu trabajo es evaluar la salud de cada cliente y dar recomendaciones concretas al KAM.
 
-Use ALL of this information. A company with 90 days inactive might be seasonal (construction sector in winter). A company with high volume but reclamada invoices is a risk. A debtor like Falabella is safer than an unknown SME.
+Tienes acceso a:
+- Métricas cuantitativas (volumen, SOW, días inactivo)
+- Estado del portafolio de facturas (ciclo SII/SAT)
+- Actividad de gestión del KAM (llamadas, WhatsApp, emails)
+- Contexto cualitativo (sector, noticias, interacciones)
 
-Respond with ONLY valid JSON — no markdown, no prose, no code fences.`;
+USA CRITERIO, no fórmulas.
 
-function buildUserPrompt(company: CompanyMetrics, debtors: TopDebtor[]): string {
-  const invoice_portfolio = company.invoice_status_counts ?? {};
-  const topDebtorsSimplified = debtors.map((d) => ({ name: d.name, volume: d.total })).slice(0, 3);
+Ejemplos de razonamiento que espero:
+- Un cliente con 60 días sin operar PERO el KAM tuvo una reunión hace 3 días y el recontacto es en 5 días → NO es churn, es pipeline activo.
+- Una empresa constructora sin operar en enero puede ser estacional, no churn.
+- Un deudor como Falabella o Walmart reduce el riesgo de una factura significativamente.
+- Facturas en acuse_recibo listas para ceder son una OPORTUNIDAD, no una señal negativa.
 
-  const payload = {
-    name: company.name,
-    country: company.country,
-    status: company.status,
-    days_since_last_op: company.days_since_last_op,
-    volume_60d: company.volume_60d,
-    credit_limit: company.credit_limit,
-    credit_used: company.credit_used,
-    sow_percentage: company.sow_percentage,
-    credit_risk_score: company.credit_risk_score,
-    sector: company.sector,
-    interaction_summary: company.interaction_summary,
-    news_context: company.news_context,
-    whatsapp_summary: company.whatsapp_summary,
-    invoice_portfolio,
-    top_debtors: topDebtorsSimplified,
-  };
+Responde SOLO con JSON válido, sin texto adicional.`;
 
-  const invoicePortfolioStr =
-    Object.keys(invoice_portfolio).length > 0
-      ? JSON.stringify(invoice_portfolio, null, 2)
-      : "No invoices";
+function formatGestiones(gestiones: GestionInput[]): string {
+  if (!gestiones || gestiones.length === 0) {
+    return "Sin gestiones registradas. El KAM no ha registrado interacciones con este cliente.";
+  }
 
-  return `Make a judgment call on this client.
+  const lines = gestiones.map((g) => {
+    const label = GESTION_LABELS[g.type as keyof typeof GESTION_LABELS] ?? g.type;
+    const overdueText = g.is_overdue
+      ? " ⚠️ RECONTACTO VENCIDO"
+      : ` → recontacto: ${g.recontact_date}`;
+    const notesText = g.notes ? ` | "${g.notes}"` : "";
+    return `- ${label} hace ${g.days_ago} días${overdueText}${notesText}`;
+  });
 
-QUANTITATIVE:
-- Status: ${company.status}, Days since enrolled: computed from enrolled_at vs now
-- Days since last operation: ${company.days_since_last_op ?? "No operations"}
-- Volume last 60 days: ${company.volume_60d}
-- SOW with Xepelin: ${company.sow_percentage ?? "N/A"}%
-- Credit risk score (DICOM/Buró): ${company.credit_risk_score ?? "N/A"}/100
-- Credit used: ${company.credit_used} / ${company.credit_limit}
-
-INVOICE PORTFOLIO (SII/CFDI states):
-${invoicePortfolioStr}
-Top debtors: ${JSON.stringify(topDebtorsSimplified)}
-
-QUALITATIVE CONTEXT:
-- Sector: ${company.sector ?? "No especificado"}
-- Last KAM interactions: ${company.interaction_summary ?? "Sin resumen disponible"}
-- Recent news: ${company.news_context ?? "Sin contexto de noticias"}
-- WhatsApp context: ${company.whatsapp_summary ?? "Sin resumen de WhatsApp"}
-
-Return ONLY valid JSON matching exactly this shape:
-{
-  "health_score": <integer 0-100, higher = healthier>,
-  "churn_risk": <"low" | "medium" | "high">,
-  "summary": "<2-3 sentences in Spanish explaining your REASONING, not just the score. Reference specific qualitative signals.>",
-  "recommended_actions": ["<2-4 specific actions for the KAM. Be concrete: mention debtor names, invoice amounts, SII states.>"],
-  "key_insight": "<The ONE thing the KAM must know about this client that the numbers alone would not reveal. In Spanish.>"
+  return lines.join("\n");
 }
 
-Scoring guidelines:
-- 80-100: active, frequent operations (≤7 days), high SOW (>60%), low credit risk (<30)
-- 60-79: good but some gaps (8-14 days, medium SOW 30-60%)
-- 40-59: moderate risk (15-30 days, low SOW <30%, or credit risk 30-60)
-- 20-39: high risk (31-60 days, or credit risk >60)
-- 0-19: critical (>60 days no operations, or enrolled with no activity)
+function buildUserPrompt(payload: HealthScorePayload): string {
+  const { company, topDebtors, gestiones_summary } = payload;
+  const invoice_portfolio = company.invoice_status_counts ?? {};
+  const topDebtorsSimplified = topDebtors.map((d) => ({ name: d.name, volume: d.total })).slice(0, 3);
 
-churn_risk rule: low if health_score ≥ 70, medium if 40-69, high if < 40.
+  const invoiceSummary =
+    Object.keys(invoice_portfolio).length > 0
+      ? Object.entries(invoice_portfolio)
+          .map(([status, cnt]) => `  ${status}: ${cnt}`)
+          .join("\n")
+      : "  Sin facturas";
 
-Company data:
-${JSON.stringify(payload)}`;
+  const days_enrolled = company.enrolled_at
+    ? Math.floor((Date.now() - new Date(company.enrolled_at).getTime()) / 86400000)
+    : null;
+
+  const risk_label =
+    (company.credit_risk_score ?? 100) < 30
+      ? "bajo"
+      : (company.credit_risk_score ?? 100) < 60
+        ? "medio"
+        : "alto";
+
+  return `Evalúa este cliente de factoring y devuelve JSON.
+
+=== MÉTRICAS ===
+Empresa: ${company.name} (${company.country})
+Sector: ${company.sector ?? "No especificado"}
+Estado: ${company.status} | Antigüedad: ${days_enrolled ?? "N/A"} días
+Días sin operación: ${company.days_since_last_op ?? "Sin operaciones"}
+Volumen últimos 60 días: ${company.volume_60d}
+Share of Wallet Xepelin: ${company.sow_percentage != null ? `${company.sow_percentage}%` : "N/A"}
+Score crediticio (${risk_label}): ${company.credit_risk_score ?? "N/A"}/100
+Línea utilizada: ${company.credit_used} / ${company.credit_limit}
+
+=== PORTAFOLIO DE FACTURAS ===
+${invoiceSummary}
+Deudores principales: ${JSON.stringify(topDebtorsSimplified)}
+
+=== GESTIONES DEL KAM ===
+${formatGestiones(gestiones_summary)}
+
+=== CONTEXTO CUALITATIVO ===
+Última interacción KAM: ${company.interaction_summary ?? "Sin resumen disponible"}
+Contexto WhatsApp: ${company.whatsapp_summary ?? "Sin resumen de WhatsApp"}
+Noticias/contexto: ${company.news_context ?? "Sin contexto de noticias"}
+
+=== OUTPUT REQUERIDO ===
+Devuelve exactamente este JSON:
+{
+  "health_score": <0-100, tu juicio basado en TODO lo anterior>,
+  "churn_risk": <"low"|"medium"|"high">,
+  "summary": "<2-3 oraciones en español explicando TU RAZONAMIENTO. Menciona señales específicas, no solo el score>",
+  "recommended_actions": [
+    "<2-4 acciones concretas para el KAM. Usa verbos de acción. Menciona tipos de gestión: llamar, enviar WhatsApp, registrar reunión. Si hay facturas en acuse_recibo, dilo explícitamente.>"
+  ],
+  "key_insight": "<LA UNA cosa más importante que el KAM debe saber, que los números solos no revelan>"
+}`;
 }
 
 function tryParse(raw: string) {
@@ -145,14 +185,13 @@ async function callWithTimeout(
 }
 
 export async function generateHealthScore(
-  company: CompanyMetrics,
-  topDebtors: TopDebtor[],
+  payload: HealthScorePayload,
 ): Promise<HealthScoreResult> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY not configured");
 
   const client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
-  const prompt = buildUserPrompt(company, topDebtors);
+  const prompt = buildUserPrompt(payload);
 
   let raw = await callWithTimeout(client, prompt);
   let parsed = tryParse(raw);

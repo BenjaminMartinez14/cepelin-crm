@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedKam } from "@/lib/auth";
 import { generateHealthScore } from "@/lib/ai/health-score";
+import type { GestionInput } from "@/lib/ai/health-score";
 import type { ApiResponse, CompanyMetrics, TopDebtor } from "@/types";
 
 export const maxDuration = 30;
@@ -77,7 +78,25 @@ export async function POST(
         .sort((a, b) => b.total - a.total)
         .slice(0, 3);
 
-      const result = await generateHealthScore(company, topDebtors);
+      const { data: gestiones } = await supabase
+        .from("gestiones")
+        .select("type, notes, contacted_at, recontact_date")
+        .eq("company_id", company.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      const gestiones_summary: GestionInput[] = gestiones?.map((g) => ({
+        type: g.type,
+        contacted_at: g.contacted_at,
+        recontact_date: g.recontact_date,
+        notes: g.notes ?? null,
+        days_ago: Math.floor(
+          (Date.now() - new Date(g.contacted_at).getTime()) / 86400000,
+        ),
+        is_overdue: new Date(g.recontact_date) < new Date(),
+      })) ?? [];
+
+      const result = await generateHealthScore({ company, topDebtors, gestiones_summary });
 
       const { error: updateErr } = await supabase
         .from("companies")
