@@ -124,6 +124,7 @@ export interface Invoice {
 
 export interface InvoiceWithDebtor extends Invoice {
   debtor_name: string;
+  is_active: boolean; // true = requires KAM attention; false = historical (cobrada etc.)
 }
 
 export interface Note {

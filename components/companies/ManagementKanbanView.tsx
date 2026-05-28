@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UrgencyBadge } from "@/components/companies/UrgencyBadge";
+import { CreditRiskDot } from "@/components/CreditRiskDot";
+import { InvoiceQualityDots } from "@/components/InvoiceQualityDots";
 import { countryFlag, formatDaysSince, urgencyTextClass, urgencyLevel } from "@/lib/format";
 import type { CompanyMetrics, ManagementStatus } from "@/types";
 
@@ -61,7 +63,10 @@ function CompanyCard({ company, isDragging = false }: { company: CompanyMetrics;
             <span className="mr-1">{countryFlag(company.country)}</span>
             {company.name}
           </div>
-          <UrgencyBadge label={company.urgency_label} />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <CreditRiskDot score={company.credit_risk_score} country={company.country} size="sm" />
+            <UrgencyBadge label={company.urgency_label} />
+          </div>
         </div>
 
         <div className={`text-xs tabular-nums ${urgencyTextClass(urgency)} mb-1`}>
@@ -78,6 +83,18 @@ function CompanyCard({ company, isDragging = false }: { company: CompanyMetrics;
           </div>
         )}
 
+        {company.urgent_invoices?.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {company.urgent_invoices.slice(0, 4).map((inv) => (
+              <InvoiceQualityDots
+                key={inv.id}
+                companyStatus={company.status}
+                hasReclamada={company.has_reclamada}
+                debtorName={inv.debtor_name}
+              />
+            ))}
+          </div>
+        )}
         {firstAction && (
           <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground italic">
             {firstAction}

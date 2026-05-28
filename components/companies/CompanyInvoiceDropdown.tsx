@@ -2,19 +2,22 @@
 
 import { TableCell, TableRow } from "@/components/ui/table";
 import { InvoiceStatusBadge } from "@/components/StatusBadge";
+import { InvoiceQualityDots } from "@/components/InvoiceQualityDots";
 import { formatCurrency, formatDaysSince } from "@/lib/format";
-import type { Country, InvoicePreview } from "@/types";
+import type { Country, CompanyStatus, InvoicePreview } from "@/types";
 
 interface Props {
   invoices: InvoicePreview[];
   country: Country;
+  companyStatus: CompanyStatus;
+  hasReclamada: boolean;
 }
 
-export function CompanyInvoiceDropdown({ invoices, country }: Props) {
+export function CompanyInvoiceDropdown({ invoices, country, companyStatus, hasReclamada }: Props) {
   return (
     <TableRow className="hover:bg-transparent">
       <TableCell colSpan={8} className="px-4 pb-3 pt-0">
-        <div className="rounded-md border border-border/50 bg-muted/30 overflow-hidden">
+        <div className="overflow-hidden rounded-md border border-border/50 bg-muted/30">
           {invoices.length === 0 ? (
             <p className="px-3 py-2 text-xs text-muted-foreground">Sin facturas.</p>
           ) : (
@@ -30,7 +33,12 @@ export function CompanyInvoiceDropdown({ invoices, country }: Props) {
               <tbody>
                 {invoices.map((inv) => (
                   <tr key={inv.id} className="border-b border-border/20 last:border-0">
-                    <td className="px-3 py-1.5 text-foreground">{inv.debtor_name}</td>
+                    <td className="px-3 py-1.5 text-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <InvoiceQualityDots companyStatus={companyStatus} hasReclamada={hasReclamada} debtorName={inv.debtor_name} />
+                        {inv.debtor_name}
+                      </div>
+                    </td>
                     <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">
                       {formatCurrency(inv.amount, country)}
                     </td>

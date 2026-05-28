@@ -17,13 +17,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export function computeUrgencyLabel(c: Omit<CompanyMetrics, "urgency_label">, today: Date): UrgencyLabel {
   const todayStr = today.toISOString().slice(0, 10);
+  const counts = c.invoice_status_counts ?? {};
 
-  // 🔴 GESTIONAR HOY — highest priority
+  // 🔴 GESTIONAR HOY
   if (
     (c.next_followup_date !== null && c.next_followup_date <= todayStr) ||
-    (c.churn_risk === "high" && (c.days_since_last_op ?? 999) > 30) ||
+    (counts.protestada ?? 0) > 0 ||
     c.has_reclamada ||
-    c.has_stale_entregada
+    (counts.cancelada ?? 0) > 0 ||
+    (c.churn_risk === "high" && (c.days_since_last_op ?? 999) > 30)
   ) return "gestionar_hoy";
 
   // 🟡 GESTIONAR ESTA SEMANA
@@ -32,11 +34,13 @@ export function computeUrgencyLabel(c: Omit<CompanyMetrics, "urgency_label">, to
   const sevenStr = sevenDaysOut.toISOString().slice(0, 10);
   if (
     (c.next_followup_date !== null && c.next_followup_date > todayStr && c.next_followup_date <= sevenStr) ||
+    ((counts.acuse_recibo ?? 0) + (counts.merito_ejecutivo ?? 0) > 0) ||
+    (counts.cedida_competencia ?? 0) > 0 ||
     ((c.days_since_last_op ?? 0) >= 15 && (c.days_since_last_op ?? 0) <= 30) ||
     ((c.sow_percentage ?? 100) < 40 && c.days_since_last_op !== null)
   ) return "gestionar_semana";
 
-  // ⚪ SIN ACCIÓN — enrolled with no operations at all
+  // ⚪ SIN ACCIÓN — enrolled, never operated
   if (c.status === "enrolled" && c.days_since_last_op === null) return "sin_accion";
 
   // 🟢 AL DÍA
@@ -62,7 +66,11 @@ export async function listCompanies(
         .from("invoices")
         .select("id, company_id, debtor_id, amount, issued_at, status")
         .in("company_id", companyIds)
-        .in("status", ["en_cobranza", "cedida_competencia", "reclamada", "protestada"])
+        .in("status", [
+          "emitida", "entregada_receptor", "acuse_recibo", "merito_ejecutivo",
+          "en_cobranza", "cedida_competencia", "reclamada", "protestada",
+          "vigente", "cedida_mx", "cancelada",
+        ])
         .order("issued_at", { ascending: false })
     : { data: [], error: null };
 
@@ -156,17 +164,25 @@ export async function getCompanyDetail(
   if (iErr) throw new Error(iErr.message);
   if (nErr) throw new Error(nErr.message);
 
+  const ACTIVE_STATUSES = new Set<InvoiceStatus>([
+    "emitida", "entregada_receptor", "acuse_recibo", "merito_ejecutivo",
+    "cedida_xepelin", "cedida_competencia", "en_cobranza",
+    "reclamada", "protestada", "vigente", "cedida_mx", "cancelada",
+  ]);
+
   const invoices: InvoiceWithDebtor[] = (invoiceRows ?? []).map((row) => {
     const debtor = row.debtors as { name: string } | { name: string }[] | null;
     const debtorName = Array.isArray(debtor) ? debtor[0]?.name : debtor?.name;
+    const status = row.status as InvoiceStatus;
     return {
       id: row.id,
       company_id: row.company_id,
       debtor_id: row.debtor_id,
       amount: Number(row.amount),
       issued_at: row.issued_at,
-      status: row.status as InvoiceStatus,
+      status,
       debtor_name: debtorName ?? "—",
+      is_active: ACTIVE_STATUSES.has(status),
     };
   });
 

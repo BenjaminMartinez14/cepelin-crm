@@ -5,49 +5,60 @@ import { useRouter } from "next/navigation";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { CompanyStatusBadge } from "@/components/StatusBadge";
 import { UrgencyBadge } from "@/components/companies/UrgencyBadge";
+import { CreditRiskDot } from "@/components/CreditRiskDot";
 import {
   countryFlag,
-  creditRiskClass,
-  creditRiskLabel,
   formatCurrency,
   formatDaysSince,
   taxIdLabel,
   urgencyLevel,
   urgencyTextClass,
 } from "@/lib/format";
-import type { CompanyMetrics } from "@/types";
+import type { CompanyMetrics, CompanyStatus, InvoiceStatus } from "@/types";
 
-const URGENT_STATUSES: { key: string; label: string; dotClass: string }[] = [
-  { key: "reclamada",          label: "reclamada",   dotClass: "bg-red-500"   },
-  { key: "protestada",         label: "protestada",  dotClass: "bg-red-600"   },
-  { key: "en_cobranza",        label: "en cobranza", dotClass: "bg-amber-500" },
-  { key: "cedida_competencia", label: "competidor",  dotClass: "bg-orange-400" },
+interface PillGroup {
+  key: string;
+  label: string;
+  dotClass: string;
+  statuses: InvoiceStatus[];
+  onlyForStatus?: CompanyStatus;
+}
+
+const PILL_GROUPS: PillGroup[] = [
+  { key: "reclamada",          label: "reclamada",        dotClass: "bg-red-500",    statuses: ["reclamada"] },
+  { key: "protestada",         label: "protestada",       dotClass: "bg-red-600",    statuses: ["protestada"] },
+  { key: "cancelada",          label: "cancelada",        dotClass: "bg-red-500",    statuses: ["cancelada"] },
+  { key: "en_cobranza",        label: "en cobranza",      dotClass: "bg-amber-500",  statuses: ["en_cobranza"] },
+  { key: "cedida_competencia", label: "competidor",       dotClass: "bg-orange-400", statuses: ["cedida_competencia"] },
+  { key: "listas",             label: "listas para ceder",dotClass: "bg-blue-500",   statuses: ["acuse_recibo", "merito_ejecutivo"] },
+  { key: "por_ceder",          label: "por ceder",        dotClass: "bg-slate-400",  statuses: ["emitida", "entregada_receptor"], onlyForStatus: "enrolled" },
 ];
 
 function InvoiceStatusPills({
-  companyId,
-  counts,
+  company,
   activePillStatus,
   onPillClick,
 }: {
-  companyId: string;
-  counts: Record<string, number> | null;
+  company: CompanyMetrics;
   activePillStatus?: string;
   onPillClick?: (companyId: string, status: string) => void;
 }) {
-  if (!counts) return null;
-  const pills = URGENT_STATUSES.filter(({ key }) => (counts[key] ?? 0) > 0);
+  const counts = company.invoice_status_counts ?? {};
+  const pills = PILL_GROUPS.filter((pg) => {
+    if (pg.onlyForStatus && company.status !== pg.onlyForStatus) return false;
+    return pg.statuses.reduce((s, st) => s + (counts[st] ?? 0), 0) > 0;
+  }).map((pg) => ({
+    ...pg,
+    count: pg.statuses.reduce((s, st) => s + (counts[st] ?? 0), 0),
+  }));
   if (pills.length === 0) return null;
   return (
     <div className="mt-1 flex flex-wrap gap-1.5">
-      {pills.map(({ key, label, dotClass }) => (
+      {pills.map(({ key, label, dotClass, count }) => (
         <button
           key={key}
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onPillClick?.(companyId, key);
-          }}
+          onClick={(e) => { e.stopPropagation(); onPillClick?.(company.id, key); }}
           className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
             activePillStatus === key
               ? "bg-muted-foreground/20 text-foreground ring-1 ring-border"
@@ -55,10 +66,8 @@ function InvoiceStatusPills({
           }`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
-          {counts[key]} {label}
-          {activePillStatus === key
-            ? <ChevronUp className="h-2.5 w-2.5" />
-            : <ChevronDown className="h-2.5 w-2.5" />}
+          {count} {label}
+          {activePillStatus === key ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
         </button>
       ))}
     </div>
@@ -100,8 +109,7 @@ export function CompanyRow({ company, onPillClick, activePillStatus }: CompanyRo
           {taxIdLabel(company.country)} {company.tax_id}
         </div>
         <InvoiceStatusPills
-          companyId={company.id}
-          counts={company.invoice_status_counts}
+          company={company}
           activePillStatus={activePillStatus}
           onPillClick={onPillClick}
         />
@@ -135,14 +143,8 @@ export function CompanyRow({ company, onPillClick, activePillStatus }: CompanyRo
         </div>
       </TableCell>
 
-      <TableCell className="py-3.5 text-right">
-        {company.credit_risk_score === null ? (
-          <span className="text-muted-foreground">—</span>
-        ) : (
-          <span className={`tabular-nums text-sm font-medium ${creditRiskClass(company.credit_risk_score)}`}>
-            {company.credit_risk_score} <span className="text-xs font-normal">{creditRiskLabel(company.country)}</span>
-          </span>
-        )}
+      <TableCell className="py-3.5 text-center">
+        <CreditRiskDot score={company.credit_risk_score} country={company.country} />
       </TableCell>
 
       <TableCell className="py-3.5 text-right">

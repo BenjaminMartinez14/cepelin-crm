@@ -80,7 +80,7 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
             <TopDebtors debtors={detail.top_debtors} country={detail.company.country} />
           </div>
 
-          <InvoiceAccordion invoices={detail.invoices} country={detail.company.country} />
+          <InvoiceAccordion invoices={detail.invoices} country={detail.company.country} companyStatus={detail.company.status} hasReclamada={detail.company.has_reclamada} />
           <NotesSection companyId={detail.company.id} initialNotes={detail.notes} pendingNote={pendingNote} />
         </>
       )}

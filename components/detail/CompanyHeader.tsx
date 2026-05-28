@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CompanyStatusBadge } from "@/components/StatusBadge";
+import { CreditRiskDot } from "@/components/CreditRiskDot";
 import { WebRiskButton } from "@/components/detail/WebRiskButton";
 import { apiPatch } from "@/lib/api";
 import { formatDate, taxIdLabel } from "@/lib/format";
@@ -51,6 +52,7 @@ export function CompanyHeader({
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">{company.name}</h1>
             <CompanyStatusBadge status={company.status} />
+            <CreditRiskDot score={company.credit_risk_score} country={company.country} />
           </div>
           <p className="text-sm text-muted-foreground">
             {taxIdLabel(company.country)} {company.tax_id} · Enrolada{" "}

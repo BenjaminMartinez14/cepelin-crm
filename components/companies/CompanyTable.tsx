@@ -87,8 +87,8 @@ export function CompanyTable({ companies, sortKey, sortDir, onSort }: CompanyTab
           <SortableHead col="sow_percentage" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="w-40">
             Share of Wallet
           </SortableHead>
-          <SortableHead col="credit_risk_score" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="w-32 text-right">
-            DICOM / Buró
+          <SortableHead col="credit_risk_score" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="w-24 text-center">
+            Riesgo
           </SortableHead>
           <SortableHead col="health_score" sortKey={sortKey} sortDir={sortDir} onSort={onSort} className="w-24 text-right">
             Health
@@ -109,6 +109,12 @@ export function CompanyTable({ companies, sortKey, sortDir, onSort }: CompanyTab
   );
 }
 
+function statusesForKey(key: string): string[] {
+  if (key === "listas")   return ["acuse_recibo", "merito_ejecutivo"];
+  if (key === "por_ceder") return ["emitida", "entregada_receptor"];
+  return [key];
+}
+
 function CompanyTableSection({
   company,
   openRow,
@@ -119,8 +125,9 @@ function CompanyTableSection({
   onPillClick: (companyId: string, status: string) => void;
 }) {
   const isOpen = openRow?.companyId === company.id;
+  const allowed = isOpen ? statusesForKey(openRow!.status) : [];
   const visibleInvoices = isOpen
-    ? (company.urgent_invoices ?? []).filter((inv) => inv.status === openRow!.status)
+    ? (company.urgent_invoices ?? []).filter((inv) => allowed.includes(inv.status))
     : [];
   return (
     <>
@@ -133,6 +140,8 @@ function CompanyTableSection({
         <CompanyInvoiceDropdown
           invoices={visibleInvoices}
           country={company.country}
+          companyStatus={company.status}
+          hasReclamada={company.has_reclamada}
         />
       )}
     </>

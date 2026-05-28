@@ -34,6 +34,7 @@ export async function GET(
 
     if (error) throw error;
 
+    const ACTIVE = new Set(["emitida","entregada_receptor","acuse_recibo","merito_ejecutivo","cedida_xepelin","cedida_competencia","en_cobranza","reclamada","protestada","vigente","cedida_mx","cancelada"]);
     const invoices: InvoiceWithDebtor[] = (data ?? []).map((row) => ({
       id: row.id,
       company_id: row.company_id,
@@ -42,6 +43,7 @@ export async function GET(
       issued_at: row.issued_at,
       status: row.status,
       debtor_name: (row.debtors as unknown as { name: string } | null)?.name ?? "",
+      is_active: ACTIVE.has(row.status),
     }));
 
     return NextResponse.json({ data: invoices, error: null });
