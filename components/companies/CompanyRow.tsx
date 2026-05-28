@@ -13,6 +13,7 @@ import {
   taxIdLabel,
   urgencyLevel,
   urgencyTextClass,
+  getUrgencyReason,
 } from "@/lib/format";
 import type { CompanyMetrics, CompanyStatus, InvoiceStatus } from "@/types";
 
@@ -99,6 +100,11 @@ export function CompanyRow({ company, onPillClick, activePillStatus }: CompanyRo
     >
       <TableCell className="py-3.5">
         <UrgencyBadge label={company.urgency_label} />
+        {getUrgencyReason(company) && (
+          <p className="mt-0.5 max-w-[160px] truncate text-xs text-muted-foreground">
+            {getUrgencyReason(company)}
+          </p>
+        )}
       </TableCell>
 
       <TableCell className="py-3.5">

@@ -20,6 +20,8 @@ export function computeUrgencyLabel(c: Omit<CompanyMetrics, "urgency_label">, to
   const counts = c.invoice_status_counts ?? {};
   const lrd = c.latest_recontact_date;
 
+  const isOperable = c.status === "active" || c.status === "recurring";
+
   // 🔴 GESTIONAR HOY
   if (
     (c.next_followup_date !== null && c.next_followup_date <= todayStr) ||
@@ -28,7 +30,8 @@ export function computeUrgencyLabel(c: Omit<CompanyMetrics, "urgency_label">, to
     (counts.cancelada ?? 0) > 0 ||
     (c.churn_risk === "high" && (c.days_since_last_op ?? 999) > 30) ||
     (lrd !== null && lrd <= todayStr) ||
-    (lrd === null && ((c.urgent_invoices?.length ?? 0) > 0 || (c.days_since_last_op ?? 0) > 15))
+    (lrd === null && ((c.urgent_invoices?.length ?? 0) > 0 || (c.days_since_last_op ?? 0) > 15)) ||
+    (c.churn_risk === "high" && c.health_score !== null && c.health_score < 40 && isOperable)
   ) return "gestionar_hoy";
 
   // 🟡 GESTIONAR ESTA SEMANA
@@ -41,7 +44,8 @@ export function computeUrgencyLabel(c: Omit<CompanyMetrics, "urgency_label">, to
     ((counts.acuse_recibo ?? 0) + (counts.merito_ejecutivo ?? 0) > 0) ||
     (counts.cedida_competencia ?? 0) > 0 ||
     ((c.days_since_last_op ?? 0) >= 15 && (c.days_since_last_op ?? 0) <= 30) ||
-    ((c.sow_percentage ?? 100) < 40 && c.days_since_last_op !== null)
+    ((c.sow_percentage ?? 100) < 40 && c.days_since_last_op !== null) ||
+    (c.churn_risk === "medium" && c.health_score !== null && c.health_score < 60 && isOperable)
   ) return "gestionar_semana";
 
   // 🟢 AL DÍA — KAM already scheduled contact beyond 7 days

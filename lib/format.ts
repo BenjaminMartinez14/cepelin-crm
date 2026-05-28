@@ -1,4 +1,4 @@
-import type { Country, UrgencyLabel } from "@/types";
+import type { CompanyMetrics, Country, UrgencyLabel } from "@/types";
 
 const CURRENCY_BY_COUNTRY: Record<Country, { currency: string; locale: string }> = {
   CL: { currency: "CLP", locale: "es-CL" },
@@ -121,4 +121,47 @@ export function urgencyLabelEmoji(label: UrgencyLabel): string {
     case "al_dia":           return "🟢";
     case "sin_accion":       return "⚪";
   }
+}
+
+export function getUrgencyReason(c: CompanyMetrics): string | null {
+  const counts = c.invoice_status_counts ?? {};
+  const today = new Date().toISOString().slice(0, 10);
+
+  const protestada = c.urgent_invoices?.find((i) => i.status === "protestada");
+  if (protestada) return "Factura protestada — acción legal pendiente";
+
+  const reclamada = c.urgent_invoices?.find((i) => i.status === "reclamada");
+  if (reclamada) return `Factura reclamada por ${reclamada.debtor_name}`;
+
+  const cancelada = c.urgent_invoices?.find((i) => i.status === "cancelada");
+  if (cancelada) return `CFDI cancelado por ${cancelada.debtor_name}`;
+
+  if (c.next_followup_date && c.next_followup_date <= today)
+    return `Seguimiento vencido desde ${c.next_followup_date}`;
+
+  if (c.latest_recontact_date && c.latest_recontact_date <= today)
+    return "Recontacto vencido — gestión pendiente";
+
+  if (c.churn_risk === "high" && c.health_score !== null && c.health_score < 40)
+    return `IA: riesgo de fuga alto · score ${c.health_score}`;
+
+  if ((c.days_since_last_op ?? 0) > 30)
+    return `${c.days_since_last_op} días sin operaciones`;
+
+  const listas = (counts.acuse_recibo ?? 0) + (counts.merito_ejecutivo ?? 0);
+  if (listas > 0) return `${listas} factura${listas !== 1 ? "s" : ""} lista${listas !== 1 ? "s" : ""} para ceder`;
+
+  const competencia = counts.cedida_competencia ?? 0;
+  if (competencia > 0) return `${competencia} factura${competencia !== 1 ? "s" : ""} cedida${competencia !== 1 ? "s" : ""} a competencia`;
+
+  if (c.churn_risk === "medium" && c.health_score !== null)
+    return `IA: riesgo moderado · score ${c.health_score}`;
+
+  if ((c.days_since_last_op ?? 0) >= 15)
+    return `${c.days_since_last_op} días sin operaciones`;
+
+  if (c.sow_percentage !== null && c.sow_percentage < 40)
+    return `SOW bajo — ${Math.round(c.sow_percentage)}% con Xepelin`;
+
+  return null;
 }

@@ -10,6 +10,7 @@ import {
   taxIdLabel,
   urgencyLevel,
   urgencyTextClass,
+  getUrgencyReason,
 } from "@/lib/format";
 import { InvoiceStatusBadge } from "@/components/StatusBadge";
 import type { CompanyMetrics, CompanyStatus, UrgencyLabel } from "@/types";
@@ -80,9 +81,14 @@ function CompanyCard({
           <span className="mr-1">{countryFlag(company.country)}</span>
           {company.name}
         </div>
-        <div className="mb-2.5 text-[11px] text-muted-foreground">
+        <div className="text-[11px] text-muted-foreground">
           {taxIdLabel(company.country)} {company.tax_id}
         </div>
+        {getUrgencyReason(company) && (
+          <p className="mb-2 mt-0.5 truncate text-[11px] text-muted-foreground">
+            {getUrgencyReason(company)}
+          </p>
+        )}
 
         <div className="mb-2 flex items-center justify-between gap-2">
           {healthNotGenerated ? (
