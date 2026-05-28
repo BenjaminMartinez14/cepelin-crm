@@ -522,9 +522,11 @@ async function main() {
   const [kamA] = kams;
 
   // Debtors (shared reference pool)
+  // Debtors that appear only in MX companies get RFC format; all others get RUT.
+  const MX_ONLY_DEBTORS = new Set(["Walmart México", "FEMSA Comercio", "Grupo Bimbo", "Arca Continental", "Cemex Operaciones"]);
   const { data: debtors, error: debErr } = await db
     .from("debtors")
-    .insert(DEBTOR_NAMES.map((name) => ({ name, tax_id: makeRut() })))
+    .insert(DEBTOR_NAMES.map((name) => ({ name, tax_id: MX_ONLY_DEBTORS.has(name) ? makeRfc() : makeRut() })))
     .select();
   if (debErr || !debtors) throw new Error(`debtors: ${debErr?.message}`);
 

@@ -79,7 +79,7 @@ export async function GET(
       amount: row.amount as number,
       issued_at: row.issued_at as string,
       days_since_issued: daysSince,
-      status: row.status as CompanyMetrics["country"] extends "CL" ? never : never,
+      status: row.status as import("@/types").InvoiceStatus,
     };
   }) as import("@/types").InvoicePreview[];
 

@@ -5,10 +5,12 @@ import type { CompanyMetrics, TopDebtor } from "@/types";
 // Groq is OpenAI-compatible; we reuse the SDK with a different base URL.
 
 // Cost estimate at scale:
-// gpt-4o-mini: ~$0.001 per company analysis
-// 10K companies/month ≈ $10/month
-// Latency: ~1-2s per company
-// Batch of 15 companies: ~20-30s total
+// Model: llama-3.3-70b-versatile via Groq
+// Cost: ~$0.0005 per company analysis (Groq pricing)
+// 10K companies/month ≈ $5/month
+// P50 latency: ~800ms per company
+// Batch of 15 companies: ~15-20s total (sequential)
+// Production path: queue with concurrency=20 → ~1min for 10K
 
 export interface HealthScoreResult {
   health_score: number;

@@ -49,21 +49,23 @@ export async function listCompanies(
   const admin = createAdminClient();
   const today = new Date();
 
-  const [
-    { data: companies, error: cErr },
-    { data: rawInvoices, error: iErr },
-  ] = await Promise.all([
-    supabase
-      .from("company_metrics")
-      .select("*"),
-    admin
-      .from("invoices")
-      .select("id, company_id, debtor_id, amount, issued_at, status")
-      .in("status", ["en_cobranza", "cedida_competencia", "reclamada"])
-      .order("issued_at", { ascending: false }),
-  ]);
+  const { data: companies, error: cErr } = await supabase
+    .from("company_metrics")
+    .select("*");
 
   if (cErr) throw new Error(cErr.message);
+
+  const companyIds = (companies ?? []).map((c) => c.id as string);
+
+  const { data: rawInvoices, error: iErr } = companyIds.length > 0
+    ? await admin
+        .from("invoices")
+        .select("id, company_id, debtor_id, amount, issued_at, status")
+        .in("company_id", companyIds)
+        .in("status", ["en_cobranza", "cedida_competencia", "reclamada", "protestada"])
+        .order("issued_at", { ascending: false })
+    : { data: [], error: null };
+
   if (iErr) throw new Error(iErr.message);
 
   const debtorIds = Array.from(

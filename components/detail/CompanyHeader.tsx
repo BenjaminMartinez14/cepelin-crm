@@ -8,14 +8,16 @@ import { CompanyStatusBadge } from "@/components/StatusBadge";
 import { WebRiskButton } from "@/components/detail/WebRiskButton";
 import { apiPatch } from "@/lib/api";
 import { formatDate, taxIdLabel } from "@/lib/format";
-import type { CompanyMetrics, Contact } from "@/types";
+import type { CompanyMetrics, Contact, Note } from "@/types";
 
 export function CompanyHeader({
   company,
   contacts,
+  onNoteAdded,
 }: {
   company: CompanyMetrics;
   contacts: Contact[];
+  onNoteAdded?: (note: Note) => void;
 }) {
   const [followup, setFollowup] = useState<string | null>(company.next_followup_date);
   const [draft, setDraft] = useState(company.next_followup_date ?? "");
@@ -95,7 +97,7 @@ export function CompanyHeader({
           )}
           {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
           <div className="mt-3">
-            <WebRiskButton companyId={company.id} companyName={company.name} />
+            <WebRiskButton companyId={company.id} companyName={company.name} onNoteAdded={onNoteAdded} />
           </div>
         </div>
       </CardContent>

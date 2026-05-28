@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,11 +13,13 @@ import { InvoiceAccordion } from "@/components/detail/InvoiceAccordion";
 import { TopDebtors } from "@/components/detail/TopDebtors";
 import { NotesSection } from "@/components/detail/NotesSection";
 import { apiGet } from "@/lib/api";
-import type { CompanyDetail } from "@/types";
+import type { CompanyDetail, Note } from "@/types";
 
 export default function CompanyDetailPage({ params }: { params: { id: string } }) {
   const [detail, setDetail] = useState<CompanyDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingNote, setPendingNote] = useState<Note | null>(null);
+  const handleNoteAdded = useCallback((note: Note) => setPendingNote(note), []);
 
   useEffect(() => {
     apiGet<CompanyDetail>(`/api/companies/${params.id}`)
@@ -50,7 +52,7 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
 
       {detail && (
         <>
-          <CompanyHeader company={detail.company} contacts={detail.contacts} />
+          <CompanyHeader company={detail.company} contacts={detail.contacts} onNoteAdded={handleNoteAdded} />
           <MetricsRow company={detail.company} />
 
           <WhatsappSummaryCard company={detail.company} />
@@ -79,7 +81,7 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
           </div>
 
           <InvoiceAccordion invoices={detail.invoices} country={detail.company.country} />
-          <NotesSection companyId={detail.company.id} initialNotes={detail.notes} />
+          <NotesSection companyId={detail.company.id} initialNotes={detail.notes} pendingNote={pendingNote} />
         </>
       )}
     </div>

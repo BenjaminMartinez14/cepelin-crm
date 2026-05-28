@@ -5,7 +5,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
+        <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-3.5">
           <Link href="/dashboard" className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-primary" />
             <span className="text-sm font-semibold tracking-tight text-card-foreground">Cepelin</span>
@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <SignOutButton />
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-screen-2xl px-6 py-8">{children}</main>
     </div>
   );
 }

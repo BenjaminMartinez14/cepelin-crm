@@ -9,25 +9,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { Note } from "@/types";
 
 interface WebRiskButtonProps {
   companyId: string;
   companyName: string;
+  onNoteAdded?: (note: Note) => void;
 }
 
 type Status = "idle" | "searching" | "streaming" | "done" | "error";
 
-export function WebRiskButton({ companyId, companyName }: WebRiskButtonProps) {
+export function WebRiskButton({ companyId, companyName, onNoteAdded }: WebRiskButtonProps) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [text, setText] = useState("");
   const [errorMsg, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
+  const accumulatedRef = useRef("");
 
   async function analyze() {
     setStatus("searching");
     setText("");
     setError("");
+    accumulatedRef.current = "";
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -58,11 +62,24 @@ export function WebRiskButton({ companyId, companyName }: WebRiskButtonProps) {
             message?: string;
           };
           if (json.type === "delta") {
-            setText((prev) => prev + (json.text ?? ""));
+            const chunk = json.text ?? "";
+            accumulatedRef.current += chunk;
+            setText((prev) => prev + chunk);
             setStatus("streaming");
           } else if (json.type === "done") {
             receivedDone = true;
             setStatus("done");
+            if (onNoteAdded) {
+              const noteId = (json as { noteId?: string }).noteId ?? crypto.randomUUID();
+              const now = new Date();
+              onNoteAdded({
+                id: noteId,
+                company_id: companyId,
+                kam_id: "",
+                content: "[Análisis Web] " + now.toISOString().slice(0, 10) + "\n\n" + accumulatedRef.current,
+                created_at: now.toISOString(),
+              });
+            }
           } else if (json.type === "error") {
             receivedDone = true;
             setError(json.message ?? "Error desconocido");
@@ -97,20 +114,20 @@ export function WebRiskButton({ companyId, companyName }: WebRiskButtonProps) {
   return (
     <>
       <Button variant="outline" size="sm" onClick={handleOpen}>
-        🔍 Analizar en web
+        🔍 Análisis de riesgo
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Análisis web · {companyName}</DialogTitle>
+            <DialogTitle>Análisis de riesgo: {companyName}</DialogTitle>
           </DialogHeader>
 
           <div className="mt-2">
             {(status === "searching") && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Buscando información de {companyName}…
+                Analizando portafolio de {companyName}…
               </div>
             )}
 

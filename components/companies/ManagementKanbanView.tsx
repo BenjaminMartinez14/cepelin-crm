@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -146,6 +146,8 @@ interface Props {
 export function ManagementKanbanView({ companies, onUpdate }: Props) {
   const [items, setItems] = useState<CompanyMetrics[]>(companies);
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  useEffect(() => { setItems(companies); }, [companies]);
   const [resetting, setResetting] = useState(false);
 
   const sensors = useSensors(

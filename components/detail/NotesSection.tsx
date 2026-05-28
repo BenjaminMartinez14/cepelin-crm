@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,17 @@ import type { Note } from "@/types";
 export function NotesSection({
   companyId,
   initialNotes,
+  pendingNote,
 }: {
   companyId: string;
   initialNotes: Note[];
+  pendingNote?: Note | null;
 }) {
   const [notes, setNotes] = useState<Note[]>(initialNotes);
+
+  useEffect(() => {
+    if (pendingNote) setNotes((prev) => [pendingNote, ...prev]);
+  }, [pendingNote]);
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
